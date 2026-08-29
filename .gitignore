@@ -1,3 +1,13 @@
 /.venv
 /_smoke
 /data
+bronze/__pycache__/__init__.cpython-38.pyc
+bronze/__pycache__/check_history.cpython-38.pyc
+bronze/__pycache__/cli.cpython-38.pyc
+bronze/__pycache__/config.cpython-38.pyc
+bronze/__pycache__/header.cpython-38.pyc
+bronze/__pycache__/ingest.cpython-38.pyc
+bronze/__pycache__/schema.cpython-38.pyc
+bronze/__pycache__/spark_session.cpython-38.pyc
+tests/__pycache__/__init__.cpython-38.pyc
+tests/__pycache__/test_header.cpython-38.pyc
