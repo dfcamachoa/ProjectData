@@ -7,19 +7,27 @@ from __future__ import annotations
 import os
 import sys
 
-# 1. Forzar a que los procesos apunten al binario de Python de tu .venv
-if ".venv" in sys.executable:
-    # Ruta absoluta al ejecutable del entorno virtual actual
-    current_python = sys.executable  
-    
-    os.environ["PYSPARK_PYTHON"] = current_python
-    os.environ["PYSPARK_DRIVER_PYTHON"] = current_python
+# Use the active virtualenv interpreter for Spark worker/driver processes.
+# Avoid forcing a stale SPARK_HOME built from a different Python version.
+if sys.executable:
+    os.environ["PYSPARK_PYTHON"] = sys.executable
+    os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
 
-    # 2. Configurar el SPARK_HOME local (lo que ya tenías)
-    venv_base = current_python.split("/bin/python")[0]
-    os.environ["SPARK_HOME"] = f"{venv_base}/lib/python3.8/site-packages/pyspark"
-    os.environ["PATH"] = f"{os.environ['SPARK_HOME']}/bin:" + os.environ["PATH"]
+    # Spark from the system install can still leak into PYTHONPATH and override the
+    # venv-installed PySpark. Remove stale /opt/spark entries before importing.
+    pythonpath = os.environ.get("PYTHONPATH", "")
+    if pythonpath:
+        cleaned = [
+            p for p in pythonpath.split(os.pathsep)
+            if p and "/opt/spark" not in p and p != "/opt/spark/python"
+        ]
+        if cleaned:
+            os.environ["PYTHONPATH"] = os.pathsep.join(cleaned)
+        else:
+            os.environ.pop("PYTHONPATH", None)
 
+# Keep system-wide Spark available if explicitly configured, but do not point at
+# a Python-version-specific path in the repo venv.
 from pyspark.sql import SparkSession
 
 

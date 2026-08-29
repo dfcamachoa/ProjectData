@@ -9,3 +9,4 @@ delta-spark==3.2.0
 
 # Dev / test only:
 pytest>=7.0
+pandas>=2.0
