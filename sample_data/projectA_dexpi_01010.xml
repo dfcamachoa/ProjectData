@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic DEXPI/Proteus P&ID export (project A). Structure is illustrative;
+     confirm real element/attribute names against actual exports (spec §9). -->
+<PlantModel>
+  <PlantInformation OriginatingSystem="SmartPlant P&amp;ID" SchemaVersion="3.6.1" Date="2026-05-10"/>
+  <Drawing Name="362-09-PR-PID-01010"
+           Number="215777C-36209-PID-0021-01010"
+           Revision="01"
+           RevisionDate="2026-05-08">
+    <GenericAttributes Number="1">
+      <GenericAttribute Name="Description" Value="ACID GAS WASHING COLUMN"/>
+    </GenericAttributes>
+  </Drawing>
+  <PipingNetworkSystem ID="SY-1" ComponentClass="PipingNetworkSystem">
+    <PipingNetworkSegment ID="SG-1">
+      <PipingComponent ID="PC-1" ComponentClass="GateValve"/>
+      <PipingComponent ID="PC-2" ComponentClass="Flange"/>
+    </PipingNetworkSegment>
+    <PipingNetworkSegment ID="SG-2">
+      <PipingComponent ID="PC-3" ComponentClass="CheckValve"/>
+    </PipingNetworkSegment>
+  </PipingNetworkSystem>
+</PlantModel>

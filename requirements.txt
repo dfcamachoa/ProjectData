@@ -1,0 +1,11 @@
+# Bronze ingestion runtime.
+# The pure core (bronze/header.py, bronze/config.py) needs only the stdlib.
+# The Spark job needs these; pin to a Spark/Delta pair that match your cluster.
+#
+# Spark 3.5.x pairs with delta-spark 3.2.x (Java 8/11/17).
+# On Databricks these are provided by the runtime — do not install there.
+pyspark==3.5.1
+delta-spark==3.2.0
+
+# Dev / test only:
+pytest>=7.0

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- No OriginatingSystem present -> exercises the SEGMENT_TAGNAME fallback.
+     A PipingNetworkSegment with a TagName should resolve this to POSTPROC. -->
+<PlantModel>
+  <Drawing Number="A22-0007-003" Revision="B"/>
+  <PipingNetworkSystem ID="SY-22071">
+    <PipingNetworkSegment ID="SG-22071-01" TagName="PG-2207101">
+      <PipingComponent ID="PC-90" ComponentClass="ButterflyValve"/>
+    </PipingNetworkSegment>
+  </PipingNetworkSystem>
+</PlantModel>
