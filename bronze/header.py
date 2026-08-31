@@ -1,38 +1,52 @@
 """Shallow header read, format detection, and hashing — the Spark-independent core.
 
-This module is deliberately free of any PySpark import so it can be unit-tested
-in plain Python and reused outside Spark. It performs the *only* interpretive act
-Bronze is allowed (spec §1.2): a bounded, streaming read of a handful of header
-fields for identity, versioning and routing. It never parses the network model,
-never touches GenericAttribute business values beyond the whitelisted identity
-names, and never reconstructs topology — those are Silver's job.
+This module has no PySpark import, so it is unit-tested in plain Python and reused
+outside Spark. It performs the *only* interpretive act Bronze is allowed (spec §1.2):
+a bounded, streaming read of a handful of header fields for identity, versioning and
+routing. It never parses the network model, never reconstructs topology.
+
+Design: ONE shallow streaming scan COLLECTS every candidate signal; then the logical
+fields are RESOLVED per detected format (spec §3.1, §6). This keeps the per-format
+source mapping (which differs between DEXPI and PostProc) as data, not branches strewn
+through the scan.
 
 Format-detection ladder (spec §4), first match wins:
   1. ORIGINATING_SYSTEM  — OriginatingSystem contains an SPPID marker -> POSTPROC,
                            any other originator -> DEXPI.
   2. SEGMENT_TAGNAME     — no usable originator: a PipingNetworkSegment carrying a
-                           TagName -> POSTPROC, else DEXPI (mirrors
-                           reconstructed._adapter_for).
+                           TagName -> POSTPROC, else DEXPI.
   3. UNKNOWN             — neither signal resolves; the file is still landed.
+
+Revision capture (spec §6):
+  * DEXPI:    current revision = highest-numbered populated RevRow{N}No; its
+              RevRow{N}Date is the (verbatim) issue date.
+  * PostProc: Drawing/@Revision states the current revision directly; the date is
+              the TP_RevisionData of the revision Label whose RevisionNumber matches.
+  Dates are stored VERBATIM (project-scoped format); normalisation is Silver/Gold's.
 """
 from __future__ import annotations
 
 import hashlib
 import io
-from dataclasses import asdict, dataclass
-from typing import Optional
+import re
+from dataclasses import asdict, dataclass, field
+from typing import Dict, List, Optional
 from xml.etree.ElementTree import ParseError, iterparse
 
 from .config import HeaderFieldConfig
 
-# Resolved-format tags stored in the `source_format` column.
 FORMAT_DEXPI = "DEXPI"
 FORMAT_POSTPROC = "POSTPROC"
 
-# How `source_format` was decided, stored in `format_detection_method`.
 METHOD_ORIGINATING_SYSTEM = "ORIGINATING_SYSTEM"
 METHOD_SEGMENT_TAGNAME = "SEGMENT_TAGNAME"
 METHOD_UNKNOWN = "UNKNOWN"
+
+# project_code_source authorities (spec §3.1).
+PC_SOURCE_DOCUMENT_NUMBER = "DOCUMENT_NUMBER"
+PC_SOURCE_INGEST_RUN = "INGEST_RUN"
+PC_SOURCE_SOURCE_PATH = "SOURCE_PATH"
+PC_SOURCE_UNKNOWN = "UNKNOWN"
 
 
 @dataclass
@@ -46,178 +60,295 @@ class HeaderInfo:
     document_number: Optional[str] = None
     drawing_revision: Optional[str] = None
     drawing_revision_date: Optional[str] = None
+    project_code: Optional[str] = None
+    project_code_source: str = PC_SOURCE_UNKNOWN
     header_parse_ok: bool = False
 
     def as_dict(self) -> dict:
         return asdict(self)
 
 
-def compute_hash(content: bytes, hash_bits: int = 256) -> str:
-    """Hex digest over the raw bytes — the version discriminator (spec §5.2).
-
-    No normalisation of whitespace, BOM, or line endings: Bronze hashes exactly
-    what it stores (spec §9, open decision #3).
-    """
-    algo = {224: "sha224", 256: "sha256", 384: "sha384", 512: "sha512"}.get(hash_bits)
-    if algo is None:
+# --------------------------------------------------------------------------- #
+# Hashing
+# --------------------------------------------------------------------------- #
+def _algo_name(hash_bits: int) -> str:
+    name = {224: "sha224", 256: "sha256", 384: "sha384", 512: "sha512"}.get(hash_bits)
+    if name is None:
         raise ValueError(f"unsupported hash_bits={hash_bits}")
-    return hashlib.new(algo, content).hexdigest()
+    return name
 
 
-def _local_tag(tag: str) -> str:
-    """Strip an XML namespace prefix: '{ns}Drawing' -> 'Drawing'."""
+def compute_hash(content: bytes, hash_bits: int = 256) -> str:
+    """Self-describing content fingerprint, e.g. ``sha256:<hex>`` (spec §5.2).
+
+    Hashes the EXACT raw bytes as ingested — no BOM strip, no CRLF/LF or whitespace
+    normalisation — so the hash never desyncs from the stored payload and distinct
+    byte-versions never silently collide. Cross-engine deterministic with Spark's
+    sha2(content, 256).
+    """
+    name = _algo_name(hash_bits)
+    return f"{name}:{hashlib.new(name, content).hexdigest()}"
+
+
+# --------------------------------------------------------------------------- #
+# Small helpers
+# --------------------------------------------------------------------------- #
+def _local_tag(tag) -> str:
     if isinstance(tag, str) and tag.startswith("{"):
         return tag.rsplit("}", 1)[-1]
     return tag
 
 
-def _first_attr(attrib: dict, candidates) -> Optional[str]:
-    for name in candidates:
-        val = attrib.get(name)
-        if val is not None and str(val).strip() != "":
-            return str(val).strip()
+def _clean(val) -> Optional[str]:
+    if val is None:
+        return None
+    s = str(val).strip()
+    return s or None
+
+
+def _first(d: Dict[str, str], keys) -> Optional[str]:
+    for k in keys:
+        v = _clean(d.get(k))
+        if v is not None:
+            return v
     return None
 
 
-def parse_header(content: bytes, cfg: Optional[HeaderFieldConfig] = None) -> HeaderInfo:
-    """Shallow, bounded, malformed-tolerant header read for one file.
+@dataclass
+class _Collected:
+    originating: Optional[str] = None
+    tb_attrs: Dict[str, str] = field(default_factory=dict)      # title-block element attrs
+    generics: Dict[str, str] = field(default_factory=dict)      # flat GenericAttribute name->value
+    revrows: Dict[int, Dict[str, str]] = field(default_factory=dict)  # DEXPI RevRow{N} -> {No,Date}
+    labels: List[Dict[str, str]] = field(default_factory=list)  # PostProc revision Labels
+    segment_element_seen: bool = False
+    segment_tagname_seen: bool = False
 
-    Returns a fully-populated HeaderInfo. On malformed XML or missing fields it
-    still returns what it found with header_parse_ok=False — Bronze flags, never
-    rejects (spec §7). Only a physically unreadable file (empty/None) yields an
-    all-null result.
+
+def _scan(content: bytes, cfg: HeaderFieldConfig) -> tuple[_Collected, bool, int]:
+    """One shallow, bounded, malformed-tolerant pass collecting raw signals."""
+    c = _Collected()
+    parse_error = False
+    seen = 0
+
+    revrow_re = re.compile(
+        rf"^{re.escape(cfg.dexpi_revrow_prefix)}(\d+)"
+        rf"({re.escape(cfg.dexpi_revrow_no_suffix)}|{re.escape(cfg.dexpi_revrow_date_suffix)})$"
+    )
+    label_tags = set(cfg.postproc_label_tags)
+    # stack of label-group dicts for GenericAttributes nested under a Label
+    label_stack: List[Dict[str, str]] = []
+
+    def _record_generic(name: str, value: str) -> None:
+        # RevRow{N}No / RevRow{N}Date (DEXPI revision history)
+        m = revrow_re.match(name)
+        if m:
+            n = int(m.group(1))
+            c.revrows.setdefault(n, {})[m.group(2)] = value
+            return
+        if label_stack:
+            # a Revision.* field belonging to the current Label group
+            label_stack[-1][name] = value
+        else:
+            c.generics.setdefault(name, value)
+
+    try:
+        for event, elem in iterparse(io.BytesIO(content), events=("start", "end")):
+            tag = _local_tag(elem.tag)
+
+            if event == "start":
+                seen += 1
+                attrib = elem.attrib
+
+                if c.originating is None:
+                    found = _first(attrib, cfg.originating_system_attrs)
+                    if found:
+                        c.originating = found
+
+                if tag in cfg.title_block_tags:
+                    for k, v in attrib.items():
+                        cv = _clean(v)
+                        if cv is not None:
+                            c.tb_attrs.setdefault(_local_tag(k), cv)
+                    # RevRow* can also appear as flat title-block attributes
+                    for k, v in attrib.items():
+                        m = revrow_re.match(_local_tag(k))
+                        cv = _clean(v)
+                        if m and cv is not None:
+                            c.revrows.setdefault(int(m.group(1)), {})[m.group(2)] = cv
+
+                if tag in label_tags:
+                    label_stack.append({})
+
+                if tag == cfg.generic_attribute_tag:
+                    name = _clean(attrib.get(cfg.generic_attribute_name_key))
+                    value = _clean(attrib.get(cfg.generic_attribute_value_key))
+                    if name and value is not None:
+                        _record_generic(name, value)
+
+                if tag in cfg.segment_element_tags:
+                    c.segment_element_seen = True
+                    if _first(attrib, cfg.segment_tagname_attrs) is not None:
+                        c.segment_tagname_seen = True
+
+                # budget control
+                have_id = _first(c.tb_attrs, ["Name", "Number"]) is not None or bool(
+                    c.generics
+                )
+                if c.originating is not None:
+                    if seen >= cfg.header_element_budget:
+                        break
+                else:
+                    if c.segment_tagname_seen and have_id:
+                        break
+                    if seen >= cfg.segment_scan_element_budget:
+                        break
+
+            else:  # end
+                if tag in label_tags and label_stack:
+                    group = label_stack.pop()
+                    if group.get(cfg.postproc_rev_status_name) == cfg.postproc_rev_status_value:
+                        c.labels.append(group)
+                elem.clear()
+    except ParseError:
+        parse_error = True
+
+    return c, parse_error, seen
+
+
+def _resolve_revision(
+    c: _Collected, source_format: Optional[str], cfg: HeaderFieldConfig
+) -> tuple[Optional[str], Optional[str]]:
+    """Return (drawing_revision, drawing_revision_date), both verbatim (spec §6)."""
+    rev: Optional[str] = None
+    rev_date: Optional[str] = None
+
+    if source_format == FORMAT_POSTPROC:
+        # Current revision stated directly on the Drawing header.
+        rev = _clean(c.tb_attrs.get(cfg.postproc_current_revision_attr))
+        if rev is not None:
+            for lab in c.labels:
+                if _clean(lab.get(cfg.postproc_rev_number_name)) == rev:
+                    rev_date = _clean(lab.get(cfg.postproc_rev_date_name))
+                    break
+
+    if rev is None and c.revrows:
+        # DEXPI: current revision = highest-numbered populated RevRow{N}No.
+        for n in sorted(c.revrows.keys(), reverse=True):
+            row = c.revrows[n]
+            no = _clean(row.get(cfg.dexpi_revrow_no_suffix))
+            if no is not None:
+                rev = no
+                rev_date = _clean(row.get(cfg.dexpi_revrow_date_suffix))
+                break
+
+    if rev is None:
+        # Fallback: a plain Revision attribute / GenericAttribute.
+        rev = _first(c.tb_attrs, cfg.revision_attrs) or _first(
+            c.generics, cfg.revision_generic_names
+        )
+    if rev_date is None:
+        rev_date = _first(c.tb_attrs, cfg.revision_date_attrs) or _first(
+            c.generics, cfg.revision_date_generic_names
+        )
+    return rev, rev_date
+
+
+def _resolve_documents(
+    c: _Collected, source_format: Optional[str], cfg: HeaderFieldConfig
+) -> tuple[Optional[str], Optional[str]]:
+    """Return (document_number [EPC], client_document_number), per-format (spec §3.1)."""
+    doc: Optional[str] = None
+    client: Optional[str] = None
+
+    if source_format == FORMAT_POSTPROC:
+        # Both numbers are Drawing/@Name (identical in project B).
+        name = _clean(c.tb_attrs.get(cfg.postproc_document_attr))
+        doc = name
+        client = name
+    else:
+        # DEXPI: EPC number is the OperationCenterDocNo GenericAttribute;
+        # client number is the DrawingNumber.
+        doc = _first(c.generics, cfg.epc_document_generic_names)
+        client = _first(c.tb_attrs, cfg.client_document_number_attrs) or _first(
+            c.generics, cfg.client_document_generic_names
+        )
+
+    # Fallbacks for other/older exports (and the earlier synthetic samples).
+    if doc is None:
+        doc = _first(c.tb_attrs, cfg.document_number_attrs) or _first(
+            c.generics, cfg.document_number_generic_names
+        )
+    if client is None:
+        client = _first(c.tb_attrs, cfg.client_document_number_attrs)
+    return doc, client
+
+
+def _derive_project_code(document_number: Optional[str], cfg: HeaderFieldConfig):
+    """Leading token of the EPC document number (spec §3.1)."""
+    if not document_number:
+        return None, PC_SOURCE_UNKNOWN
+    parts = document_number.split(cfg.project_code_delimiter)
+    idx = cfg.project_code_token_index
+    if 0 <= idx < len(parts):
+        token = _clean(parts[idx])
+        if token:
+            return token, PC_SOURCE_DOCUMENT_NUMBER
+    return None, PC_SOURCE_UNKNOWN
+
+
+def parse_header(content: bytes, cfg: Optional[HeaderFieldConfig] = None) -> HeaderInfo:
+    """Shallow, bounded, malformed-tolerant header read for one file (spec §7).
+
+    Returns a fully-populated HeaderInfo. On malformed XML or missing fields it still
+    returns what it found with header_parse_ok=False — Bronze flags, never rejects.
+    Only a physically unreadable (empty/None) file yields an all-null result.
     """
     cfg = cfg or HeaderFieldConfig()
     info = HeaderInfo()
-
     if not content:
-        # Nothing to land content-wise; caller still records the row (spec §7).
         return info
 
-    originating: Optional[str] = None
-    client_doc: Optional[str] = None
-    internal_doc: Optional[str] = None
-    revision: Optional[str] = None
-    revision_date: Optional[str] = None
-    segment_element_seen = False   # any PipingNetworkSegment at all
-    segment_tagname_seen = False   # a PipingNetworkSegment carrying a TagName
-    parse_error = False
+    c, parse_error, seen = _scan(content, cfg)
 
-    seen = 0
-    try:
-        # start events expose attributes immediately, before children are read,
-        # so a single streaming pass suffices. We clear elements on end to bound
-        # memory even for large files.
-        for event, elem in iterparse(io.BytesIO(content), events=("start", "end")):
-            if event == "end":
-                elem.clear()
-                continue
-
-            seen += 1
-            tag = _local_tag(elem.tag)
-            attrib = elem.attrib
-
-            # (a) originating system — may sit on the root or a PlantInformation
-            #     element; read from whichever element carries the attribute.
-            if originating is None:
-                found = _first_attr(attrib, cfg.originating_system_attrs)
-                if found:
-                    originating = found
-
-            # (b) title-block identity fields.
-            if tag in cfg.title_block_tags:
-                client_doc = client_doc or _first_attr(
-                    attrib, cfg.client_document_number_attrs
-                )
-                internal_doc = internal_doc or _first_attr(
-                    attrib, cfg.document_number_attrs
-                )
-                revision = revision or _first_attr(attrib, cfg.revision_attrs)
-                revision_date = revision_date or _first_attr(
-                    attrib, cfg.revision_date_attrs
-                )
-
-            # (c) identity carried as GenericAttribute Name/Value pairs.
-            elif tag == cfg.generic_attribute_tag:
-                name = attrib.get(cfg.generic_attribute_name_key)
-                value = attrib.get(cfg.generic_attribute_value_key)
-                if name and value is not None and str(value).strip() != "":
-                    value = str(value).strip()
-                    if name in cfg.generic_client_document_names:
-                        client_doc = client_doc or value
-                    elif name in cfg.generic_document_names:
-                        internal_doc = internal_doc or value
-                    elif name in cfg.generic_revision_names:
-                        revision = revision or value
-                    elif name in cfg.generic_revision_date_names:
-                        revision_date = revision_date or value
-
-            # (d) structural PostProc fallback signal.
-            if tag in cfg.segment_element_tags:
-                segment_element_seen = True
-                if not segment_tagname_seen and (
-                    _first_attr(attrib, cfg.segment_tagname_attrs) is not None
-                ):
-                    segment_tagname_seen = True
-
-            # --- early-exit / budget control -------------------------------
-            have_identity = internal_doc is not None and revision is not None
-            if originating is not None:
-                # Cheap path: originator resolves the format; once identity is
-                # also in hand we can stop without scanning into the network body.
-                if have_identity:
-                    break
-                if seen >= cfg.header_element_budget:
-                    break
-            else:
-                # Must look deeper for the segment TagName fallback.
-                if segment_tagname_seen and have_identity:
-                    break
-                if seen >= cfg.segment_scan_element_budget:
-                    break
-    except ParseError:
-        # Malformed XML: keep whatever we gathered before the break point.
-        parse_error = True
-
-    # --- resolve format (spec §4) -------------------------------------------
+    # --- resolve format (spec §4) ---
     source_format = None
     method = METHOD_UNKNOWN
-    if originating:
-        upper = originating.upper()
+    if c.originating:
+        upper = c.originating.upper()
         if any(m.upper() in upper for m in cfg.postproc_originating_markers):
             source_format = FORMAT_POSTPROC
         else:
             source_format = FORMAT_DEXPI
         method = METHOD_ORIGINATING_SYSTEM
-    elif segment_tagname_seen:
-        source_format = FORMAT_POSTPROC
-        method = METHOD_SEGMENT_TAGNAME
-    elif segment_element_seen:
-        # We scanned segments and none carried a TagName — the "otherwise" side of
-        # reconstructed._adapter_for's structural test resolves to DEXPI.
-        source_format = FORMAT_DEXPI
-        method = METHOD_SEGMENT_TAGNAME
+    elif c.segment_tagname_seen:
+        source_format, method = FORMAT_POSTPROC, METHOD_SEGMENT_TAGNAME
+    elif c.segment_element_seen:
+        source_format, method = FORMAT_DEXPI, METHOD_SEGMENT_TAGNAME
     else:
-        # No originator and no segment element observed: genuinely unclassifiable.
-        # Land it anyway (spec §4, step 3); Silver decides.
-        source_format = None
-        method = METHOD_UNKNOWN
+        source_format, method = None, METHOD_UNKNOWN
 
-    info.originating_system = originating
+    document_number, client_document_number = _resolve_documents(c, source_format, cfg)
+    drawing_revision, drawing_revision_date = _resolve_revision(c, source_format, cfg)
+    project_code, project_code_source = _derive_project_code(document_number, cfg)
+
+    info.originating_system = c.originating
     info.source_format = source_format
     info.format_detection_method = method
-    info.client_document_number = client_doc
-    info.document_number = internal_doc
-    info.drawing_revision = revision
-    info.drawing_revision_date = revision_date
+    info.client_document_number = client_document_number
+    info.document_number = document_number
+    info.drawing_revision = drawing_revision
+    info.drawing_revision_date = drawing_revision_date
+    info.project_code = project_code
+    info.project_code_source = project_code_source
 
-    # header_parse_ok: every field needed downstream was read and XML was clean.
-    # Required = document_number + drawing_revision + a resolved source_format.
-    # client_document_number is optional (project B often carries only one number).
+    # header_parse_ok: required fields read and XML clean. Required = EPC
+    # document_number + drawing_revision + a resolved source_format. The revision
+    # date and client number are not required.
     info.header_parse_ok = (
         (not parse_error)
-        and internal_doc is not None
-        and revision is not None
+        and document_number is not None
+        and drawing_revision is not None
         and source_format is not None
     )
     return info

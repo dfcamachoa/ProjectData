@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic INGR ISO-15926 PostProc export (project B), v0.2 header shape.
+     - OriginatingSystem=SPPID => POSTPROC via ORIGINATING_SYSTEM
+     - Drawing/@Name = EPC & client document number (identical in B): 216097C-...
+     - Drawing/@Revision = current revision (authoritative): G
+     - one Label per revision (Revision.StatusType="Revision"); date = TP_RevisionData
+       of the Label whose RevisionNumber matches Drawing/@Revision (G => 2024/06/28)
+     Structure is illustrative; confirm names against real exports (spec §6, §9). -->
+<PlantModel>
+  <PlantInformation OriginatingSystem="SPPID" SchemaVersion="ISO15926-PostProc" Date="2026-06-01"/>
+  <Drawing Name="216097C-A22-PID-0021-0012-001" Revision="G" Title="ACID GAS"/>
+  <Label ComponentClass="TitleBlockRevision">
+    <GenericAttribute Name="Revision.StatusType" Value="Revision"/>
+    <GenericAttribute Name="Revision.RevisionNumber" Value="B"/>
+    <GenericAttribute Name="Revision.TP_RevisionData" Value="2024/03/03"/>
+    <GenericAttribute Name="Revision.Text" Value="ISSUE FOR REVIEW"/>
+  </Label>
+  <Label ComponentClass="TitleBlockRevision">
+    <GenericAttribute Name="Revision.StatusType" Value="Revision"/>
+    <GenericAttribute Name="Revision.RevisionNumber" Value="G"/>
+    <GenericAttribute Name="Revision.TP_RevisionData" Value="2024/06/28"/>
+    <GenericAttribute Name="Revision.Text" Value="ISSUE FOR HAZOP"/>
+  </Label>
+  <PipingNetworkSystem ID="SY-22071">
+    <PipingNetworkSegment ID="SG-22071-01" TagName="PG-2207101">
+      <PipingComponent ID="PC-10" ComponentClass="GlobeValve"/>
+    </PipingNetworkSegment>
+  </PipingNetworkSystem>
+</PlantModel>

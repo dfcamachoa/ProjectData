@@ -1,5 +1,5 @@
 # Silver Layer — Design Specification
- 
+
 **Data Product:** Automatic Pre-commissioning Systemization based on P&ID interoperability data
 **Layer:** Silver (parse · reconstruct · assemble · quality-gate · CDC) — the second medallion tier
 **Target runtime:** Delta Lake on Apache Spark (PySpark), with per-drawing Python UDFs
@@ -7,38 +7,39 @@
 **Date:** 2026-08-29
 **Companions:** `bronze_layer_spec.md`, `medallion_rdf_ido_strategy_mapping.md` (§2, §3.2–§3.4, §6), `data_specification.md` (§2, §4.2), `algorithm_spec.md` (§3–§5, §11), `systemization_spec.md`, `architecture_note.md` (§2, §2a, §5).
 **Grounding:** every code reference below is to the actual `pidsys` / `pidtool` / `bppidsys` source (`pidsys/master_data.py`, `pidsys/reconstructed.py`, `pidsys/refdata.py`, `pidtool/pipeline.py`, `bppidsys/`), read at repo `main`. Where the strategy note and the real code differ, the code wins and the gap is named.
- 
+
 ---
- 
+
 ## 0. Verdict up front
- 
+
 Silver is where **the value and the risk of this whole program already live** — and, unlike Bronze, it is *not* net-new. The strategy note calls Silver *"parse (ga) → reconstruct → GX → CDC"* and treats the middle two as a shred-and-pivot. They are not. The `pidtool` topology reconstruction is, in the architecture note's words, **the crown jewel** (`architecture_note.md` §1): it repairs a raw connectivity graph that is missing ~97% of its inline valves (0/35 → 35/35 on the steam sheet) and turns it into a directed graph the boundary rules depend on. That code exists, is validated to ~97% source agreement, and must be **re-housed, not re-derived**.
- 
+
 So the correct framing for Silver is the one the strategy note reaches at the layer level: **wrap the existing extraction, reconstruction, assembly and quality logic in a persisted, versioned, parallel, quality-gated Spark stage — keeping the Python algorithm intact as a per-drawing function — and emit typed, queryable tables the Gold and semantic layers bind to.** Silver's genuine additions over today's PoC are three: (a) it **persists** the reconstructed model as Delta tables instead of holding it in memory and releasing it (`architecture_note.md` §4); (b) it **promotes** the PoC's advisory `flags` to *gated* Great Expectations with an explicit quarantine policy; and (c) it adds **object-grain CDC** the PoC has never had.
- 
+
 The one discipline that makes Silver correct — the mirror of Bronze's "store raw, never interpret" — is this: **Silver computes master data and connectivity; it does not compute commissioning systems, and it never lets a rule read the source turnover assignment.** The reconstructed graph carries `Z_TurnOverSystemNumber` and `SubsystemNo` (as `seg_sys` / `seg_sub` in `ReconstructedGraph`), but the walk that computes systems reads *only* connectivity, class and fluid — never those two fields (`walk.py` module docstring; `validate.py` is the *only* reader, and only as an answer key). That compute-only firewall is the source of the ~97% figure's credibility, and Silver must preserve it structurally: the oracle columns are carried through Silver as **quarantined lineage**, not as inputs to any Silver-or-above computation. Everything below serves that discipline, the reconstruction's primacy, and the honest-partial-result behaviour the specs mandate.
- 
+
 ---
- 
+
 ## 1. Purpose & scope
- 
+
 ### 1.1 What Silver is
- 
+
 Silver turns the immutable raw XML that Bronze landed into the **canonical, use-case-neutral plant model** every downstream problem reads: typed master-data objects, a reconstructed and directed connectivity graph with provenance-flagged edges, the cross-document assembly, and the data-quality verdicts that travel with all of it. It is the layer that realises the architecture note's "model the plant once" contract (`architecture_note.md` §2, §6) — everything above it (bi-temporal Gold, the RDF/IDO projection, the Jena rules, Test Packages) consumes Silver without re-parsing a byte of source.
- 
+
 Concretely, Silver runs five sub-stages, in this order, over each Bronze file-version:
- 
+
 1. **Parse / attribute shred** — the strategy's "pivot", already done precisely by `master_data.ga()` and `read_segment()`: lift the `GenericAttribute` name/value pairs into typed columns (`ItemTag`, `OperFluidCode`, `PipingMaterialsClass`, `ComponentClass`, `NominalDiameter`, `UnitCode`, `SP_PartNo`, the oracle `Z_TurnOverSystemNumber` / `SubsystemNo`), decode the tag grammar, and apply the equipment ghost-filter.
 2. **Topology reconstruction** — run the `pidtool` / `bppidsys` `Pipeline(...).run()` per drawing to repair connectivity: skeleton from shared segment endpoints, inline valves ordered by centerline arc length, yielding **undirected** and **directed** adjacency plus the `valves` and `isolation` sets.
 3. **Cross-document assembly** — stitch off-page connectors across drawings into one plant graph (`ReconstructedGraph.assemble()` → `_stitch_from()` → `bppidsys.offpage.match_pairs`).
 4. **Data quality (Great Expectations)** — promote the specs' quality flags (`algorithm_spec.md` §11; `data_specification.md` §4.2 Quality flags) from advisory annotations to *gated* expectations with a **quarantine-and-flag**, not abort-on-fail, posture.
 5. **Change data capture** — object-grain hashing to isolate New / Modified / Deleted engineering objects across Bronze versions, scoping reconstruction recompute to the drawings that actually changed.
+
 Silver emits a small family of Delta tables (§4) — components, segments, equipment/nozzles, reified connections (undirected + directed, Derived/Source flagged), the per-drawing master-data hierarchy stamps, and a quality-verdict table — keyed on stable internal IDs, discriminated by `source_format`, and carrying the Bronze `content_hash` and `bronze_id` as lineage so every Silver row traces to the exact bytes it came from.
- 
+
 ### 1.2 What Silver is NOT
- 
+
 This boundary is the most important thing in the document, because the reuse thesis depends on Silver staying **use-case-neutral** (`architecture_note.md` §2; the strategy note §8.3: *"model plant data, not systemization data"*).
- 
+
 | Concern | Belongs to | Why not Silver |
 |---|---|---|
 | Landing raw XML, versioning files, format detection | **Bronze** | Silver consumes Bronze rows; it never re-reads the export folder (`bronze_layer_spec.md` §1.3) |
@@ -47,11 +48,11 @@ This boundary is the most important thing in the document, because the reuse the
 | Bi-temporal `validFrom` / `validTo`, "current truth" views, interval closing | **Gold** | Silver produces the object-grain deltas Gold intervals over; it does not model time (strategy §4) |
 | RDF/IDO triples, reified-Connection RDF-star, named graphs, SPARQL | **the semantic layer** | Silver's typed schema is the *store-binding contract* the mapper reads (`architecture_note.md` §2); Silver emits tables, not triples |
 | Test-package cut rules (class/rating breaks, test-containment) | **the Test Packages rule package** | a second consumer of the same Silver facts (`architecture_note.md` §6); Silver carries `PipingMaterialsClass` per segment but does **not** cut on it |
- 
+
 Silver's one interpretive remit is exactly the two things the PoC already does and nothing more: **derive the canonical master-data model, and reconstruct + assemble the connectivity graph, with quality verdicts attached.** Anything that reads that model to make a commissioning decision is a rule package above Silver.
- 
+
 ### 1.3 Position in the medallion architecture
- 
+
 ```
         Bronze                          ┌──────────────── Silver (this spec) ────────────────┐
   raw XML as-is,      ── replayable ──▶  │ A parse/shred    master_data.ga(), read_segment,   │
@@ -69,73 +70,79 @@ Silver's one interpretive remit is exactly the two things the PoC already does a
                                                                     │
                                      systemization pkg · Test Packages pkg · ITR/MC · …
 ```
- 
+
 Silver is the strategy's **phase-1** deliverable, steps 1–2 (strategy §10): *"Bronze Delta + Silver (existing parser + reconstruction as UDFs) + GX suites. This alone converts the PoC from a batch script into a data product with an audit trail … without touching the rules."*
- 
+
 ---
- 
+
 ## 2. The crown jewel: reconstruction is upstream of everything
- 
+
 The single most important design fact — the one the strategy note flags as *"the single biggest technical risk in the port"* — is that **Silver's connectivity does not come from the raw `<Connection>` records.** An SPPID adapter wires only each segment's two endpoints, so the raw graph is missing inline valves and most cross-segment links (as little as 1/34 valves in a sample; `pidsys/README.md`). Any quality check, any boundary walk, any RDF `isConnectedTo` triple built on the raw graph is built on a graph that understates the plant by ~97% of its inline valves. Reconstruction repairs this before any of that can mean anything.
- 
+
 **How the real code does it** (`pidtool/pipeline.py`, `Pipeline.run()`), stage by stage:
- 
+
 - `_extract_objects()` — one `Component` per placed element (catalogue symbols excluded via `Doc.in_catalogue`), carrying class (`cc`), tag, location, **segment centerline**, connection **nodes**, and the full `GenericAttribute` dict (`all_ga`), plus its owning `seg_id`.
 - `_raw_topology()` — read the incomplete `<Connection>` `FromID`/`ToID` endpoints (this is what the raw graph would give you, and why it is insufficient).
 - `_reconstruct_inline()` — **the geometry step**: for each segment, take its one adapter-exported endpoint connection `(a, b)`, then order the inline components between them by projecting their coordinates onto the segment **centerline** (`_order_along` → `arc_position`), so the chain runs `a → … → b`. This is what recovers the missing valves and their sequence, and it is **per-drawing, stateful, and geometry-dependent** — it does *not* decompose into a row-wise Spark transformation.
 - `_build_graph()` — chain the ordered components into edges, drop null/orphan terminals, apply `FlowDirection` to make the graph **directed** (`adj` / `radj`) as well as **undirected** (`und`), and identify `valves` by `VALVE_CLASSES`.
 - `_precompute_isolation()` — for each non-valve component, the set of valves that bound its isolation region (bounded flood-fill stopping at valves).
+
 `ReconstructedGraph.from_path()` (`pidsys/reconstructed.py`) wraps this, then `_wire_equipment()` attaches **only real equipment** (the ghost-filter, `equipment_is_real(tag, noz)`) into the undirected graph via its nozzles, and `stamp_master_data()` stamps the business tags.
- 
+
 **Consequences for the Silver design:**
- 
+
 - **Reconstruction belongs to Silver, before any connectivity expectation runs.** A GX "orphan node" or "dangling end" check on the *raw* graph would fail every inline valve — a false alarm. Connectivity expectations (§3.4) run on the **reconstructed** `und` graph, never on `_raw_topology()`.
 - **It is a per-drawing Python UDF, not Spark SQL** (§6). Spark parallelises the reconstruction over *files* (hundreds of drawings), it does not reformulate the algorithm. Attempting the arc-length ordering as a row-wise pivot re-opens a solved, validated problem and would silently poison every layer above (strategy §2, risk §9.2 there).
 - **The Derived/Source provenance of every edge is not cosmetic.** Most reconstructed edges are *Derived* (`Connection.derived=True` by default in `master_data.py`; `data_specification.md` §2.12, §4.2 "Segment connectivity = DERIVED"). Silver must emit that flag on every connection row, because the whole PoC thesis is provenance-traceability and the semantic layer maps these to reified/RDF-star Connections carrying `derived` (strategy §5, note 2). A Silver connection table without the flag would let the graph assert inferred topology as source truth.
 - **Direction is a first-class Silver output.** The three directional guards downstream (flare guard, directional consumer guard, relief attribution — `walk.py`) need flow sense *in the data*. Silver emits both the undirected `und` adjacency **and** the directed `adj` (a `flowsTo`), so the semantic layer can materialise `pidsys:flowsTo` (strategy §5, note 3). Losing direction in Silver means no rule authoring above can recover the guards.
+
 **Net:** treat `pidtool` / `bppidsys` as a fixed, validated Silver component invoked per drawing. Silver's job around it is persistence, parallelism, provenance and quality — not re-implementation.
- 
+
 ---
- 
+
 ## 3. The five Silver sub-stages in detail
- 
+
 ### 3.1 Stage A — Parse / attribute shred (keep the parser verbatim)
- 
+
 This *is* the strategy's "dynamically pivot the `<GenericAttribute>` tags into distinct columns", and `pidsys` already does it precisely and format-independently. The rule for Silver: **keep this logic byte-for-byte; wrap it in a Spark stage that emits typed tables.**
- 
+
 The canonical readers to re-house unchanged:
- 
+
 - **`master_data.ga(el, name)`** — the *single* `GenericAttribute` name/value reader (the consolidation removed three copies; `architecture_note.md` §2). Every attribute lift goes through it or its adapter equivalents (`Doc.ga`, `Doc.all_ga`).
 - **`master_data.read_segment(seg_el, conv)`** — builds a typed `PipingSegment` from a `PipingNetworkSegment`: `OperFluidCode`, `ItemTag`, `TagSuffix`, `PipingMaterial(s)Class` (both spellings tried), `NominalDiameter`, `InsulType/Purpose/Thick`, plus the decoded `LineIdentity` via `conv.decode(item, fluid, suffix)`.
 - **`master_data.TaggingConvention`** — the tag grammar **as data, both directions**, loaded from the `TaggingConvention` reference sheet by `from_refdata()`: `decode()` (ItemTag → parts) and the `TagTemplate` renderers (`compose_pns_tag`, `compose_subline_tag`, `compose_segment_tag`, `compose_itemtag`). This is what lets project A's packed `AG362090006-44"(1C6AS)-S(45)(40)` and project B's `36"-PG-1415109-D341H-H` compose from one engine (`master_data.py` module docstring).
 - **Equipment ghost-filter** — `Equipment.is_real` / the free function `equipment_is_real(tag, nozzle_ids)`: keep an `Equipment` element **only if it has a tag and ≥1 nozzle** (`algorithm_spec.md` §3.2; `data_specification.md` §2.9). Applied at wiring time in `ReconstructedGraph._wire_equipment` (untagged + nozzle-less are never wired).
 - **`master_data.stamp_master_data(graph, dom)`** — stamps `.component_name`, `.pns` (Pipeline System business tag), `.pns_src` (source `TagName`), `.seg_tag` (segment business tag), `.subline`, and `.unit` onto each component, and returns `{"segments", "unit_flagged"}`. Traceability only — Pipeline-System membership is a **source structural fact, not a grouping signal** (`data_specification.md` §2.2; the docstring says so explicitly).
+
 **Adapter selection is recorded by Bronze, confirmed here.** `reconstructed._adapter_for(path)` routes DEXPI → `pidtool` and PostProc → `bppidsys`, deciding by `bppidsys.Doc.is_postproc(root)` — **PostProc iff any `PipingNetworkSegment` carries a `TagName`** (`bppidsys/model.py`). Bronze already captured this signal as `source_format` / `format_detection_method` (`bronze_layer_spec.md` §4); Silver reads that column to pick the adapter and may re-confirm with `is_postproc` — the single source of truth for *how to parse* stays in the Silver adapter, exactly as the specs require.
- 
+
 **Stage-A output:** typed component / segment / equipment / nozzle tables (the schema of §4), each row carrying its stable internal `ID` (`SY…` / `SG…` / element `ID`; `data_specification.md` §4.2 "Internal keys"), the decoded tag fields, the stamped business tags, and the quarantined oracle fields. No connectivity yet — that is Stage B.
- 
+
 ### 3.2 Stage B — Topology reconstruction (the per-drawing UDF)
- 
+
 Run `Pipeline(dom).run()` once per drawing (via `ReconstructedGraph.from_path` for a single sheet, or inside `assemble` for a set). Emit, per drawing:
- 
+
 - **the component/segment attribute rows** enriched with reconstruction outputs: `inline_index` / `inline_count` (the derived order along the segment — flagged DERIVED, `data_specification.md` §2.3.1/§4.2), `valve` membership, and the per-component `isolation` set;
 - **one edge table, one row per undirected connection** — the connectivity backbone (`und`), reliable regardless of direction, is the entity (`data_specification.md` §2.12: direction is a *separate overlay*, not a separate edge);
 - **direction as a `flow_sense` overlay on that row**, `{none, forward, reverse, both}`, oriented against the canonical endpoint order (§4) — derived from `adj`/`FlowDirection`. This is the four-state signal the directional guards read (`walk.py` fires them only when the sense is known and one-way), which a bare boolean cannot hold once endpoints are canonically sorted (§4);
 - **every edge tagged `derived: true|false`** — Source where the edge came straight from a `<Connection>` endpoint, Derived where reconstructed (inline chaining, nozzle wiring, OPC matches). This is the reified `Connection` (`master_data.Connection`, `data_specification.md` §2.12) rendered as rows.
+
 Do **not** attempt Stage B in Spark SQL (§2, §6). It is a Python function over one drawing's DOM; Spark's role is to run many of them in parallel (§6).
- 
+
 ### 3.3 Stage C — Cross-document assembly (OPC stitch)
- 
+
 `ReconstructedGraph.assemble(paths, progress)` reconstructs each sheet, `_absorb`s it into one merged graph, harvests off-page connectors as it goes (`_harvest_opcs` — DEXPI `PipeOffPageConnector` keyed by `SP_pairedWithID` GUID; PostProc OPCs via `bppidsys.offpage.harvest_opcs`), releases each DOM (`g._dom = None` — memory-lean), and finally `_stitch_from(opc_records)` calls `bppidsys.offpage.match_pairs` to add the cross-document edges, recording `opc_stitched` (matched) and `opc_offset` (**unmatched** — an open boundary, **not** an error; `algorithm_spec.md` §5, D5). A malformed file is reported and skipped, not fatal (`assemble`'s `except` → `progress(..., "ERROR")` → `continue`).
- 
+
 For Silver this maps to: reconstruct-per-drawing is the parallel UDF (§6); the **stitch is a plant-level (or drawing-set-level) reduce step** that runs after the per-drawing rows are materialised, because OPC matching is inherently cross-file. The assembled edge table therefore has two provenances: intra-drawing edges (Stage B) and inter-drawing OPC continuations (Stage C, `ConnType.OFFPAGE`, always Derived). Unmatched OPCs become an *open-boundary* quality flag on the connection table (§3.4), never a dropped row.
- 
+
 **CDC interaction (forward pointer to §3.5):** because a deleted inline valve changes topology and therefore boundaries, CDC must scope the reconstruction recompute to the changed drawing(s) **plus their OPC-mated neighbours** — the assembly already tracks those pairings, so the neighbour set is available, not guesswork.
- 
+
 ### 3.4 Stage D — Data quality (promote flags to gated expectations)
- 
+
 The PoC already contains a rich, spec-referenced quality set — but as advisory `flags` on the typed objects and `Document.flags`, not as enforced expectations. Silver's DQ work is to **promote each existing flag to a Great Expectations expectation with an explicit gate policy**, preserving the governing principle the specs state twice: *"each stage raises flags rather than aborting, so a whole-drawing result is always produced with problems surfaced"* (`algorithm_spec.md` §11; echoed strategy §3.3). GX's default abort-on-fail posture must therefore be tuned to **quarantine-and-annotate** for almost everything.
- 
+
+The gate's **deliverable is the `silver_quality` ledger itself (§4)** — a per-drawing / per-project **data-quality punch list** (segments missing fluid / piping-class / insulation; equipment and instrument tags that break the naming convention) that the precommissioning engineer fixes at source in SmartPlant *before* systemization runs. Catching those gaps early is a direct program value driver, so the gate is best understood as a **rule package reading project reference data**, not bespoke code — the same rules-as-data move the systemization rules make (`architecture_note.md` §3).
+
 | Existing `pidsys` / spec check | Source of truth | GX expectation shape | Gate policy |
 |---|---|---|---|
 | **Ghost equipment** — tagged ∧ ≥1 nozzle | `Equipment.is_real` / `equipment_is_real`; ALG §3.2; MD §2.9 | pair check over `tag` + `nozzle_count` | untagged + nozzle-less → **drop** (as today, never wired); tagged + nozzle-less → **quarantine + flag**, don't fail the batch |
@@ -149,44 +156,52 @@ The PoC already contains a rich, spec-referenced quality set — but as advisory
 | **Dangling ends / orphan nodes** | reconstructed `und`; MD §4.2 | connectivity expectation on the **reconstructed** graph (never raw) | flag |
 | **Inline position / segment connectivity = DERIVED** | `inline_index`; `Connection.derived`; MD §2.3.1/§2.12/§4.2 | expectation that every derived edge carries `derived=true` | structural invariant; **fail** only if a Derived edge is unflagged (a pipeline bug, not a data issue) |
 | **Positive pressures / numeric sanity** (strategy's example) | strategy §3.3 | `expect_column_values_to_be_between` | flag |
- 
-**The critical GX design point:** most expectations run at a **quarantine** posture — a failing row is annotated in a `quality_verdict` table and, where appropriate, routed to a quarantine partition, but the whole-drawing result is still produced. Reserve hard `fail` for two cases only: (a) a truly unreadable/malformed input that Bronze landed but Silver cannot parse at all (the drawing is skipped, exactly as `assemble` skips it today), and (b) a **structural invariant breach** that indicates a Silver bug rather than dirty data — e.g. a Derived edge with no `derived` flag, or an oracle column leaking into a compute input (§5). Everything else flags and flows. Losing this posture would kill the honest-partial-result behaviour, which the specs treat as a feature, not a bug.
- 
+| **Segment attribute completeness** — `OperFluidCode` / `PipingMaterialsClass` / `NominalDiameter` present | MD §2.3, §4.2 "tag-input completeness"; `read_segment` | `expect_column_values_to_not_be_null` per attribute | flag, **retain** — distinct from *unknown-value*; this is *no value at all* (a punch-list item) |
+| **Insulation completeness** — `InsulType/Purpose/Thick` present | MD §4.2; `read_segment` | not-null per insulation field | **flag for review, not a defect** — uninsulated lines are legitimate; the engineer judges whether insulation was expected |
+| **Equipment tag naming-compliance** — tag matches the project's equipment grammar (e.g. `362-C0953`) | reference data (naming convention); MD §1.2, §2.9 | `expect_column_values_to_match_regex` (pattern from ref-data) | flag non-compliant; **retain** — the tag is still the object's identity |
+| **Instrument tag naming-compliance** — tag matches the project's instrument grammar (e.g. `362TE920076` = area+type+loop) | reference data; MD §2.5 | `expect_column_values_to_match_regex` (pattern from ref-data) | flag non-compliant; **retain** |
+
+**The critical GX design point — fail for bugs, not for data.** The suite runs in **observe-and-record** mode: expectation results are written to the `silver_quality` ledger and GX's default abort-on-fail is tuned **off** for every data-quality expectation. Hard `fail` is reserved for exactly the two **structural / pipeline-invariant** breaches — a *code bug*, never dirty data — that would silently corrupt every output: an **oracle column leaking into a compute input** (§5; validation goes circular) and a **Derived edge with no `derived` flag** (§4; the RDF layer would assert inferred topology as source truth). Unusable input (a malformed XML Silver cannot parse at all) is a **per-drawing skip** — emit a parse-fail ledger row and continue, exactly as `assemble` skips today — *not* a batch fail: a data problem is scoped to one drawing, a code bug fails the whole run because it affects all drawings equally. Everything else flags/quarantines and flows; losing this posture would kill the honest-partial-result behaviour the specs treat as a feature. One operational refinement, deliberately **not** a hard fail: a **mass failure of a normally-rare expectation** (e.g. >50 % unknown-fluid or non-compliant tags) usually means misconfigured reference data or the wrong adapter, so raise a loud **run-level warning** ("check the reference data / project config") — but still produce the partial result, since the same pattern can be a legitimately un-onboarded new project.
+
 ### 3.5 Stage E — Change data capture (object-grain, delete+recreate-safe)
- 
+
 CDC is the one Silver sub-stage with no PoC predecessor, and its whole job is to separate **engineering change** from **re-export churn**: SmartPlant re-exports the entire drawing XML for a single symbol move, so anything file-grained (Bronze's `content_hash`) marks every object modified. Object-grain CDC answers two distinct questions, and conflating them is the classic mistake:
- 
+
 1. **Identity** — *is this the same engineering item across two exports?* (decides Add / Delete / Match)
 2. **Content** — *given it is, did something engineering-meaningful change?* (decides Modify, and triggers recompute)
+
 **Why the SPPID UID cannot be the identity key.** The source element UID (`SP…` / `SG…`) is a SmartPlant persistent-object GUID — stable across a component's *continuous* edit history, but **re-minted when a component is deleted and recreated**, which is a routine rework action in SPPID. Keying identity on the UID would therefore turn every delete+recreate of an unchanged valve into a false **Delete(old UID) + Add(new UID)** — and because an inline valve is involved, that false delete would fire a topology recompute (below) and open/close Gold intervals for zero engineering change. The UID answers "same object *instance*," not "same engineering *item*." This is exactly what `architecture_note.md` §2a means by "volatile element IDs," and it demotes the UID from primary key to a corroborating hint and an audit field.
- 
+
 **Identity is a hierarchical match, not a single key.** Because delete+recreate defeats any single stable key, Silver matches objects across versions on an **anchor** that survives both delete+recreate and reordering, then disambiguates members only inside the anchor:
- 
+
 - **Equipment** → its tag (a recreated vessel is re-tagged identically).
 - **Segment** → `(drawing_number, composed seg business tag)`. The seg tag is *reconstructed* from source attributes (fluid + unit + sequence + diameter + class, via `compose_segment_tag`), so a recreated line composes to the same anchor by construction — UID-independent.
 - **Component** (no per-object business tag — `ItemTag` is the shared *line* tag) → the bucket `(segment anchor, component_class)`. A recreated gate valve lands in the same `(line, GateValve)` bucket as its predecessor.
 - **Within a bucket** (e.g. three gate valves on one segment) → match the N old against N new by neighbour signature and inline order; the **unmatched remainder is the genuine add/remove**. Equal counts with matching neighbour signatures pair silently (the recreate is absorbed); differing counts are a real topology delta scoped to that one segment. The UID is the last-resort tie-breaker between two otherwise indistinguishable members.
+
 **Three hashes, cleanly separated:**
- 
+
 - **`anchor_hash`** (matching) — the business/structural anchor above. **Contains no UID.**
 - **`content_hash_eng`** (Modify + recompute trigger) — the engineering attributes (segment: `OperFluidCode`, `PipingMaterial(s)Class`, `NominalDiameter`, insulation triple, decoded unit/seq/system; component: `component_class`) **plus one-hop neighbour sets keyed on each neighbour's *anchor identity* — never its UID.** Keying adjacency on the neighbour's anchor is what makes both the object *and its neighbourhood* immune to instance churn: a *neighbour's* delete+recreate would otherwise ripple a false Modify into this object through its adjacency set. Undirected and directed (`flowsTo`) neighbour sets are hashed separately, so a pure flow-direction change is detectable and distinct from a connectivity change.
 - **`content_hash_audit`** — `content_hash_eng` plus the UID and the quarantined oracle fields (`seg_sys` / `seg_sub`). This makes a delete+recreate and a source turnover reassignment *visible* in the audit trail and to Gold's valid-time, while both stay **inert** for engineering CDC — the oracle never enters a compute-triggering hash (§5).
+
 **Recompute is triggered by structure, not by instance.** A change in anchor/bucket structure or in a neighbour anchor-set is what scopes a reconstruction recompute — to the affected drawing **and its OPC-mated neighbours** (§3.3), never the whole plant. A recreated-but-identical valve (same bucket, same neighbour anchors) triggers nothing: no recompute, no interval churn. A deleted inline valve *does* change boundaries, so it correctly recomputes that drawing's reconstruction rather than merely tombstoning a row.
- 
+
 **Two determinism preconditions this design now depends on:**
- 
+
 - **A deterministic tie-break in the reconstruction.** Inline position (`inline_index`) disambiguates members inside a bucket, so `pidtool._order_along` must sort by arc length **with a stable secondary key (the component UID)** — otherwise near-coincident coordinates let the stable sort fall back to XML element order, which itself shifts on re-export, and within-bucket matching becomes non-deterministic. (Two-line change; also strengthens `algorithm_spec.md` §10.)
 - **A deterministic, complete composed seg tag.** The seg tag is now the segment's durable anchor, so a project tag template that leaves it sparse (e.g. no diameter) could collide two distinct segments on one anchor. Detect and **flag** an anchor collision (a data-quality expectation, §3.4); never silently merge.
+
 **Acceptance test.** The UID-stability question is moot — we know it breaks on delete+recreate. The test that actually validates this stage: take two real revisions of one drawing in which a **known delete+recreate** occurred, and confirm the anchor-match produces **zero false deltas** on the unchanged items, and exactly the real add/remove on the changed one.
- 
+
 **Grain aligns with Gold.** The object grain here is the grain Gold versions at (`validFrom`/`validTo` per component / segment / equipment / connection; strategy §4c), so Silver's New/Modified/Deleted deltas are exactly the interval open/close events Gold consumes. "Never delete, close the interval" lives in Gold; Silver's job is to *detect* the change, label it, and keep instance churn from ever reaching it.
- 
+
 ---
- 
+
 ## 4. Silver table family (the emitted schema)
- 
+
 Silver emits one Delta table per object kind, all keyed on stable internal IDs, all carrying Bronze lineage (`bronze_id`, `content_hash`, `source_format`, `drawing_number`) so any Silver row traces to its exact source bytes. The typed objects these tables serialise are the **published store-binding contract** (`architecture_note.md` §2): `Document`, `PipingComponent`, `PipingSegment`, `Equipment`/`Nozzle`, `PipelineSystem`/`Subline`/`ProcessUnit`/`StartUpPackage`, and the reified `Connection`.
- 
+
 | Table | Grain | Key columns | Notable payload | Provenance / quarantine |
 |---|---|---|---|---|
 | `silver_components` | one Piping Component | `component_id` (element `ID`) | `component_class`, `component_name`, `tag`, `segment_id`, `inline_index`/`inline_count` (DERIVED), `is_valve`, `drawing_number` | `bronze_id`, `content_hash`; `inline_*` flagged derived |
@@ -196,72 +211,89 @@ Silver emits one Delta table per object kind, all keyed on stable internal IDs, 
 | `silver_connections` | one undirected connection | `connection_id` | canonical-sorted `from_id`, `to_id`, `from_node`, `to_node`, `conn_type` (Process/Nozzle/Signal/OffPage), **`derived` (bool)**, **`flow_sense` enum** (`none`/`forward`/`reverse`/`both`, vs. the sorted order) | `derived` flag mandatory; OPC edges always derived; `flow_sense` derived |
 | `silver_hierarchy` | one line-tree membership | `component_id` | `sup`, `process_unit`, `pipeline_system`, `subline`, `segment` (the stamped rollup) | placeholder `SUP??` where unit unresolved |
 | `silver_quality` | one flag occurrence | (`object_id`, `flag`) | `flag`, `severity`, `gate` (drop/quarantine/flag/fail), `detail`, `stage`, transaction-time | the GX verdict ledger (§3.4) — system of record for every verdict |
- 
+
 Every object row (`silver_components` / `silver_segments` / `silver_equipment` / `silver_connections`) additionally carries a low-cardinality **`quality_gate` enum** (`clean` / `flagged` / `quarantined`) — the max-severity gate across that object's ledger rows — so a cautious consumer can filter `WHERE quality_gate <> 'quarantined'` without joining the ledger, while flagged-but-fine rows flow untouched.
- 
+
 Design rules for the family:
- 
+
 - **One table per kind across both formats.** DEXPI and PostProc rows coexist in the same table, discriminated by `source_format` — never split into per-format tables (preserves the format-independence the interoperability promise rests on; `bronze_layer_spec.md` §2, §6; `architecture_note.md` §2).
 - **The oracle columns live only on `silver_segments`, clearly named and clearly quarantined.** They are propagated to components via `segment_id` for validation joins in Gold, never copied into a compute-input column (§5).
 - **`silver_connections` is the store-binding backbone (resolved decision #4).** One row per undirected connection, with `derived` and `flow_sense` as overlays — exactly what the RDF/IDO mapper reads: each row emits `isConnectedTo` (symmetric) unconditionally and `pidsys:flowsTo` (oriented by `flow_sense`) when the sense is known (strategy §5). Direction is a **field, not a second table** (`data_specification.md` §2.12) and a **four-state enum, not a boolean**, because sorting the endpoints for identity (§ decision #2) removes flow from the from/to order and the guards distinguish `none` from `both`. `flow_sense` is itself *derived* (distinct from the connectivity `derived` flag); a reconstructed direction on a directional limit is used-but-provisional (`algorithm_spec.md` §11), and that provisional-marking is a rule-package concern, not a Silver column.
 - **`connection_id` anchors on endpoint *anchor* identities, not UIDs (resolved decision #2).** The within-version key is `hash(canonical-ordered endpoint anchor keys, conn_type)` — undirected edges sort the two anchor keys so `(A,B) == (B,A)`; a directed `flowsTo` keeps `from → to`. **Direction, the `derived` flag, and the connection nodes are content, not identity:** a flow flip or a Derived→Source promotion is a *Modify* of the same edge, never a Delete+Add; nodes enter the key only when parallel edges between one anchor pair + type are actually detected (then flag it, §3.4). Cross-version, edges are diffed in the **endpoint-matched space** (§3.5), so an endpoint's delete+recreate never churns its edges. **OPC continuation edges anchor on `OPCTag` / the paired-drawing relationship, not the `SP_pairedWithID` pairing GUID** — a recreated off-page connector re-mints that GUID exactly like any other delete+recreate, and the cross-drawing edge must survive it.
 - **Quarantine keeps the object in place (resolved decision #3).** `silver_quality` is the append-only system of record for every verdict; the object row carries only the denormalised `quality_gate` enum above. No object is moved to a separate quarantine table or partition — reconstruction, the walk, and Gold must see the complete plant (honest-partial-result, `algorithm_spec.md` §11). A **`drop`** verdict (untagged nozzle-less ghost equipment, never wired) still writes a ledger row, so "what was dropped and why" stays auditable and Bronze→Silver replay is honest. A **verdict change** (e.g. `clean → quarantined`) is a Silver-derived event recorded in the ledger with its own transaction-time; it never enters `content_hash_eng`, so re-evaluating quality never triggers a topology recompute (§3.5).
+
 ---
- 
+
 ## 5. The oracle-quarantine discipline (Silver's compute-only firewall)
- 
+
 This is Silver's equivalent of Bronze's immutability guarantee, and it is what keeps the ~97% figure honest. The rule, inherited verbatim from the PoC:
- 
+
 > The walk reads only connectivity, class, and fluid — **never** the source `Z_TurnOverSystemNumber` / `SubsystemNo`. (`walk.py` module docstring.) The only reader of those fields is `validate.py`, and only as an answer key.
- 
+
 In `ReconstructedGraph` these fields are carried as `seg_sys` (`Z_TurnOverSystemNumber`) and `seg_sub` (`SubsystemNo`), populated in `__init__` from the segment attrs, and `validate_full` / `validate_strict` are the sole consumers (`_src_sys` reads `seg_sys`). Silver must preserve this **structurally**, not by convention:
- 
+
 1. **Carry, don't compute.** `src_turnover` / `src_subsystem` ride through Silver on `silver_segments` as lineage for the eventual validation join. No Silver expectation, CDC classifier (beyond audit visibility, §3.5), hierarchy stamp, or connection build reads them.
 2. **Physically separate in Gold/RDF, and prefigure it in Silver.** The semantic layer puts the oracle in a **rule-invisible named graph** `graph:oracle` (strategy §5). Silver's contribution is to keep those two columns isolated and labelled so the projection to `graph:oracle` is a clean column-select, and so a reviewer can *see* that nothing above Silver joined them into a computed field.
 3. **Make leakage a hard-fail invariant.** One GX expectation (§3.4, the "structural invariant" class) asserts that no compute-input column is derived from `src_turnover`/`src_subsystem`. This is the one place Silver *does* abort — because a leak makes the whole validation circular (strategy risk §6), and a circular 97% is worse than no number.
+
 This discipline is *why* the strategy note insists the oracle stays in its own named graph: Silver is where that separation is born.
- 
+
 ---
- 
+
 ## 6. Parallelism model — Spark over files, not rows
- 
+
 The strategy is emphatic and the code confirms it: Spark's role in Silver is **scale-out over drawings, not a reformulation of any algorithm** (strategy §2, §3.2). The PoC is already memory-lean per drawing (`assemble` releases each DOM after harvesting its OPCs), so the parallel shape is natural:
- 
+
 - **Stages A + B are an embarrassingly parallel per-file map.** Read the Bronze payload for a drawing, run `ReconstructedGraph.from_path`-equivalent logic (parse → reconstruct → stamp) inside a `mapInPandas` / UDF keyed on `bronze_id`, and emit that drawing's component/segment/edge rows. No cross-file state, so this fans out over hundreds of drawings at ≈1 s/drawing (README throughput).
 - **Stage C is a reduce.** OPC stitching is inherently cross-file, so it runs after the per-drawing rows are materialised — a join of harvested OPC records (`_harvest_opcs` output) through `match_pairs`, producing the inter-drawing `silver_connections` rows and the `opc_offset` open-boundary flags. Scope it per plant (or per loaded drawing-set) as the assembly does today.
 - **Stage D (GX) runs as expectation suites over the materialised Silver tables** — batchable and parallel by partition; the connectivity expectations run on the assembled (post-Stage-C) graph, the attribute expectations on the per-drawing tables.
 - **Stage E (CDC) is a delta join** between the new Silver rows and the current Silver state, on the object-grain hash — parallel by object partition, with the topology-recompute scoped to changed-drawing + OPC-neighbour sets.
+
 The trap to avoid, named by the architecture note (§5) and the strategy (§2): do **not** push the reconstruction or the connected-fragment logic into Spark SQL because "a walk is awkward in it." Keep the Python algorithm as the UDF body; let Spark own only orchestration, persistence, and the file-level fan-out.
- 
+
+### 6.1 Resolved packaging (decision #5)
+
+`mapInPandas` over Bronze payloads for the row-local A+B map; a separate Spark join for the C reduce — **not** a path-based job (that would either reach past Bronze, breaking replayability, or point-read Bronze anyway). Because one Bronze row = one whole drawing (`bronze_layer_spec.md` §2), A+B is a plain `mapInPandas`, no `groupBy`. The **~13 MB** payloads (`bronze_layer_spec.md` §3.3) make three things required rather than optional:
+
+- **Size-aware partitioning keyed on Bronze's `file_size_bytes`.** Balance partitions by *total bytes*, not row count, and route the multi-MB sheets to singleton tasks — a 13 MB file parses to a ~100–200 MB DOM, and a row-count split would drop several into one task and spike memory. The skew key already exists in Bronze.
+- **Arrow batch of 1** (`spark.sql.execution.arrow.maxRecordsPerBatch = 1`) so a task never buffers two large blobs; combined with singleton routing, a big-file task holds exactly one DOM.
+- **Memory sized to peak DOM × concurrency.** The reconstruction is inherently whole-DOM (parent map, centerline geometry, cross-refs), so ~200 MB peak per big file is irreducible; size for it.
+
+Two efficiency notes that survive into any runtime: **broadcast the parsed reference data** (the PoC re-reads `Reference_Data.xlsx` per call via `resolve_refdata_path` — parse once, broadcast the conventions / boundary / fluid / unit sets), and wrap each drawing in **try/except → error row** so a parse failure emits a `silver_quality` parse-fail row instead of killing the partition (preserving `assemble`'s skip-malformed behaviour).
+
+**On the PoC runtime (local WSL, Spark local mode — `bronze_layer_spec.md` §8.4).** Local mode is one JVM: parallelism is across **local cores** (`local[*]`), and the driver *is* the executor — so the memory to size is **`spark.driver.memory`**, not executor memory. Set it for (peak DOM ≈ 200 MB) × (cores in `local[N]`) plus headroom, and don't run `local[many]` against 13 MB files on a RAM-limited box — drop `N`, or process the big sheets in a lower-parallelism pass. Size-aware partitioning still earns its keep (it keeps one core from choking on all the big files), and broadcasting reference data is in-JVM-cheap but keeps the code identical on graduation. Throughput is cores × ≈1 s/drawing — fine for the PoC's tens-to-low-hundreds of sheets, and the same `mapInPandas` code scales out on a cluster unchanged.
+
 ---
- 
+
 ## 7. Reference-data coupling — Silver reads the rule-as-data surface
- 
+
 Silver is where the reference-data externalisation the architecture note completed (§3) first pays off, because Silver is the first layer that *reads* it. The precondition for the whole "rules as data" thesis is that these load from the workbook, not from code — and they already do:
- 
+
 - **Fluid sets** — `refdata.load_fluid_sets(path)` derives flare (Category `Flare`) and steam/condensate (Subcategory Steam/Condensate) membership from the `Fluid` sheet. Silver uses the catalogue for the *unknown-fluid* expectation (§3.4); the flare/steam *classification* itself is a rule-package concern above Silver, but the catalogue Silver validates against is the same one.
 - **Boundary role-sets** — `refdata.load_boundary_sets()` reads the `Boundary` sheet into `isolation` / `positive` / `relief` / `trap` / `all` (CheckValve deliberately excluded; `_FALLBACK_BOUNDARY` is the built-in default). Silver carries `is_valve` and the precomputed `isolation` sets from reconstruction; the *cut* at boundaries is a rule-package concern, but Silver's valve/isolation facts are what the cut reads.
 - **Tagging convention** — `TaggingConvention.from_refdata()` (decode knobs + `TagTemplate`s) drives Stage A's decode and round-trip expectation.
 - **Unit / SUP catalogue** — `hierarchy.load_unit_sup` / `load_unit_catalogue` drive the hierarchy stamp and the unknown-unit expectation.
+
 The Silver design keeps this coupling **read-only and project-scoped**: onboarding a project is pointing Silver at that project's `Reference_Data.xlsx` (or the CFI/NFS variants already in the repo), not editing Silver code — the reusability thesis, made concrete at the layer that first consumes the reference data (`architecture_note.md` §3; strategy §8.2).
- 
+
 ---
- 
+
 ## 8. Open decisions for the team
- 
+
 None blocks starting; each wants a call during implementation:
- 
+
 1. **CDC object-grain identity — RESOLVED (§3.5).** Identity is a hierarchical anchor-match (equipment tag / composed seg tag / `(segment, component_class)` bucket with within-bucket member pairing), **not** a single key; the SPPID UID is demoted to a corroborating tie-breaker and an audit field, because it is re-minted on delete+recreate (a routine SPPID rework action) and would otherwise manufacture false Delete+Add churn and spurious topology recomputes. Three hashes separate matching (`anchor_hash`, no UID), engineering-Modify (`content_hash_eng`, adjacency keyed on neighbour *anchor* identity), and audit (`content_hash_audit`, adds UID + quarantined oracle). Remaining implementation sub-choices: the exact within-bucket member-pairing heuristic, and confirming per project that the composed seg tag is complete enough to be collision-free (else flag, §3.4).
 2. **Connection identity — RESOLVED (§4).** `connection_id` = `hash(canonical-ordered endpoint *anchor* identities, conn_type)` — anchors, not UIDs, so an endpoint's delete+recreate doesn't re-mint the edge; undirected pairs sort the two anchor keys. Direction, the `derived` flag, and nodes are **content, not identity** (their change is a Modify); nodes join the key only on a detected parallel-edge collision (then flag). OPC continuation edges anchor on `OPCTag` / paired-drawing, not the pairing GUID. Cross-version edge diffing happens in the endpoint-matched space (§3.5). Remaining sub-choice: the exact anchor-string serialisation shared by object and edge identity (so both sides hash the same bytes).
 3. **Quarantine physicalisation — RESOLVED (§4).** The object stays in its home table; `silver_quality` is the append-only system of record for every verdict; the object row carries a low-cardinality `quality_gate` enum (`clean`/`flagged`/`quarantined`) so a strict consumer can exclude holds without a join. No separate quarantine table/partition (honest-partial-result). `drop` still writes a ledger row; a verdict change is ledger-only and never enters the engineering hash. Partition on `quality_gate` only if quarantine volume later justifies it — default is a plain column.
 4. **Directed-edge representation — RESOLVED (§3.2, §4).** One `silver_connections` table, one row per undirected connection (the entity per `data_specification.md` §2.12), with direction as a **`flow_sense` enum `{none, forward, reverse, both}`** — not two tables, and not a bare `directed` boolean (which cannot carry the direction once endpoints are canonically sorted for identity, nor distinguish `none` from `both`, both of which the guards read). One row feeds both `isConnectedTo` and `flowsTo` in the RDF projection.
-5. **UDF packaging.** `mapInPandas` over Bronze payloads vs. a Python-orchestrated Spark job over file paths. Both keep the algorithm intact; pick per the cluster's serialization limits for the DOM.
-6. **GX gate defaults per expectation.** The §3.4 table proposes gates; ratify which (if any) beyond the two structural-invariant cases are allowed to hard-fail a batch.
-7. **PostProc parity coverage.** The adapter-parity test (`test_master_data.py`) activates only with a sample drawing present (`architecture_note.md` §7 step 2). Add a synthetic DEXPI **and** PostProc sample so Silver's per-format output is regression-tested in CI before scale-out.
+5. **UDF packaging — RESOLVED (§6.1).** `mapInPandas` over Bronze payloads for the row-local A+B map (one Bronze row = one drawing, so a plain map, no `groupBy`); a Spark join for the C reduce — not a path-based job (Bronze is the source, replayability holds). 13 MB payloads make size-aware partitioning (byte-balanced on `file_size_bytes`, singleton tasks for big sheets), Arrow `maxRecordsPerBatch=1`, and peak-DOM (~200 MB) memory sizing required; broadcast parsed reference data; per-drawing try/except → `silver_quality` parse-fail row. On the PoC's **local-WSL Spark local mode**, parallelism is across local cores and the sizing target is `spark.driver.memory` (driver = executor); the same code scales out on a cluster unchanged.
+6. **GX gate defaults — RESOLVED (§3.4).** Fail for bugs, not data: hard `fail` only on the two structural invariants (oracle leak; unflagged Derived edge); unusable input is a per-drawing skip; every data-quality expectation flags/quarantines and flows. GX runs observe-and-record (results → `silver_quality`, abort tuned off); a mass-failure of a rare expectation raises a run-level warning (config smell), not an abort. The gate's deliverable is the ledger as a per-project **data-quality punch list** — expanded with segment completeness (fluid / piping-class / diameter / insulation-as-review) and equipment/instrument tag naming-compliance validated against reference-data patterns (rules-as-data).
+7. **PostProc parity coverage — RESOLVED.** Parity already holds at the code level — `bppidsys` works with Project B PostProc files, and both adapters emit the same `PipelineResult` shape (`architecture_note.md` §1–§2); the gap is *committed CI coverage*, not feasibility. Two-tier samples, driven by client confidentiality: **committed synthetic DEXPI + PostProc fixtures** (derived by scrubbing/minimising real sheets — preserving the `is_postproc` `TagName` marker, the `GenericAttribute` sets, and the Project-B doc-number/revision attributes) that light up `test_master_data.py`'s adapter-parity section on every change, plus a **Silver-level parity assertion** (identical `silver_*` schemas + equivalent tag/graph output across formats — guards two-format drift, risk #9); **real Project A/B sheets stay out-of-repo** (13 MB + confidentiality) as the oracle and the fixtures' source. Building the PostProc fixture also **retires the two deferred Project-B confirmations** — the revision-date attribute (Bronze #1) and the EPC-doc-number attribute (Bronze #6) — since both are read directly from the real Project B files the team already runs `pidsys` on. Remaining work here is *execution* (build the fixtures / read the two attributes), not an open design choice.
+
 ---
- 
+
 ## 9. Risks & mitigations
- 
+
 | # | Risk | Mitigation |
 |---|---|---|
 | 1 | **Reconstruction mis-scoped into Spark SQL** — the arc-length ordering re-implemented row-wise, losing geometry and re-opening a solved, validated problem (strategy §2; the single biggest port risk). | Reconstruction is a per-drawing Python UDF (`Pipeline.run`); Spark parallelises over *files*, never reformulates the algorithm (§2, §6). |
@@ -273,9 +305,9 @@ None blocks starting; each wants a call during implementation:
 | 7 | **CDC churn from whole-file re-export** — a symbol move marks every component modified. | Object-grain canonical-projection hashing, distinct from Bronze's file hash (§3.5). |
 | 8 | **Use-case leakage into Silver** — systemization concepts (systems, SUP grouping as commissioning) modelled in the shared layer, breaking reuse. | Silver is master data + connectivity + QC only; grouping is a rule package above Silver (§1.2; strategy §8.3). |
 | 9 | **Two-format drift** — DEXPI and PostProc Silver outputs diverge. | One table per kind, `source_format` a column; adapter parity tested in CI (§4, §8.7). |
- 
+
 ---
- 
+
 ## 10. One-paragraph summary
- 
+
 Silver is the layer that turns Bronze's immutable raw XML into the canonical, use-case-neutral plant model every rule package reads — and, crucially, it is **re-housing, not inventing**: the attribute shred (`master_data.ga`, `read_segment`, `stamp_master_data`, the ghost-filter), the topology-first reconstruction (`pidtool`/`bppidsys` `Pipeline.run` — the validated crown jewel that repairs 0/35 → 35/35 inline valves and yields a directed graph), and the cross-document OPC assembly all already exist and must be wrapped as per-drawing Python UDFs behind a Spark stage that parallelises over *files*, never re-implemented as row-wise SQL. Silver's genuine additions are persistence (typed Delta tables that are the store-binding contract for Gold and the RDF/IDO layer), gated Great Expectations that promote the specs' advisory flags to a quarantine-and-flag posture preserving honest-partial-results, and object-grain CDC that detects engineering change without drowning in re-export churn. The one discipline that makes all of it correct is the compute-only firewall inherited from the PoC: the reconstructed graph carries the source turnover assignment (`seg_sys`/`seg_sub`) as **quarantined lineage** for the validation answer key alone, and nothing in Silver or above computes from it — because that separation, born in Silver, is what keeps the ~97% agreement figure a real cross-check rather than a circular one. Emit the reified connections with their Derived/Source flag and their flow direction, keep the oracle isolated, keep grouping out, and Silver becomes exactly what the program needs: the plant modelled once, cleanly, for every rule package that follows.

@@ -31,7 +31,19 @@ if sys.executable:
 from pyspark.sql import SparkSession
 
 
-def get_spark(app_name: str = "bronze-pid-ingestion", extra_conf: dict | None = None) -> SparkSession:
+def get_spark(
+    app_name: str = "bronze-pid-ingestion",
+    extra_conf: dict | None = None,
+    enable_hive: bool = True,
+) -> SparkSession:
+    """Build a Delta-enabled SparkSession.
+
+    enable_hive (spec §8.4): register named tables in the embedded Apache Derby
+    Hive metastore (auto-creates ./metastore_db on first use), so a name like
+    ``bronze.pid_documents`` resolves. Single-session only — stop one Spark session
+    before starting another. Set False for path-based-only use (no metastore).
+    A modest Arrow batch size keeps per-task memory low with ~13 MB payloads.
+    """
     builder = (
         SparkSession.builder.appName(app_name)
         .config("spark.driver.memory", "4g")
@@ -40,7 +52,11 @@ def get_spark(app_name: str = "bronze-pid-ingestion", extra_conf: dict | None = 
             "spark.sql.catalog.spark_catalog",
             "org.apache.spark.sql.delta.catalog.DeltaCatalog",
         )
+        # keep Arrow batches small so a task never buffers many large blobs (§8.2)
+        .config("spark.sql.execution.arrow.maxRecordsPerBatch", "64")
     )
+    if enable_hive:
+        builder = builder.enableHiveSupport()
     for k, v in (extra_conf or {}).items():
         builder = builder.config(k, v)
 

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic DEXPI/Proteus P&ID export (project A), v0.2 header shape.
+     - OriginatingSystem => DEXPI via ORIGINATING_SYSTEM
+     - EPC document number = OperationCenterDocNo GenericAttribute (215777C-...)
+     - client document number = DrawingNumber (362-92-PR-PID-02231)
+     - revision history as RevRow{N}No/Date/Desc; current = highest N (RevRow2 = C)
+     Structure is illustrative; confirm names against real exports (spec §6, §9). -->
+<PlantModel>
+  <PlantInformation OriginatingSystem="SmartPlant P&amp;ID" SchemaVersion="3.6.1" Date="2026-05-10"/>
+  <Drawing DrawingNumber="362-92-PR-PID-02231" Title="LOW PRESSURE STEAM">
+    <GenericAttributes Number="6">
+      <GenericAttribute Name="OperationCenterDocNo" Value="215777C-36292-PID-0031-02231"/>
+      <GenericAttribute Name="RevRow1No" Value="B"/>
+      <GenericAttribute Name="RevRow1Date" Value="03MAR24"/>
+      <GenericAttribute Name="RevRow1Desc" Value="ISSUED FOR REVIEW"/>
+      <GenericAttribute Name="RevRow2No" Value="C"/>
+      <GenericAttribute Name="RevRow2Date" Value="12APR24"/>
+      <GenericAttribute Name="RevRow2Desc" Value="ISSUED FOR HAZOP (IFH)"/>
+    </GenericAttributes>
+  </Drawing>
+  <PipingNetworkSystem ID="SY-1" ComponentClass="PipingNetworkSystem">
+    <PipingNetworkSegment ID="SG-1">
+      <PipingComponent ID="PC-1" ComponentClass="GateValve"/>
+      <PipingComponent ID="PC-2" ComponentClass="Flange"/>
+    </PipingNetworkSegment>
+  </PipingNetworkSystem>
+</PlantModel>

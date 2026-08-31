@@ -4,3 +4,6 @@
 /data
 bronze/__pycache__
 tests/__pycache__
+metastore_db
+spark-warehouse
+derby.log

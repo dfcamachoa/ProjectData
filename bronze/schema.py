@@ -27,6 +27,8 @@ HEADER_STRUCT = StructType(
         StructField("document_number", StringType()),
         StructField("drawing_revision", StringType()),
         StructField("drawing_revision_date", StringType()),
+        StructField("project_code", StringType()),
+        StructField("project_code_source", StringType()),
         StructField("header_parse_ok", BooleanType()),
     ]
 )
@@ -36,8 +38,8 @@ BRONZE_SCHEMA = StructType(
     [
         StructField("bronze_id", StringType(), nullable=False),
         StructField("content", BinaryType(), nullable=False),
-        StructField("content_text", StringType(), nullable=True),
-        StructField("content_hash", StringType(), nullable=False),
+        StructField("content_text", StringType(), nullable=True),  # off by default (spec §3.3)
+        StructField("content_hash", StringType(), nullable=False),  # self-describing "sha256:<hex>" (§5.2)
         StructField("file_size_bytes", LongType(), nullable=False),
         StructField("source_path", StringType(), nullable=False),
         StructField("source_filename", StringType(), nullable=True),
@@ -50,9 +52,10 @@ BRONZE_SCHEMA = StructType(
         StructField("client_document_number", StringType(), nullable=True),
         StructField("document_number", StringType(), nullable=True),
         StructField("drawing_revision", StringType(), nullable=True),
-        StructField("drawing_revision_date", StringType(), nullable=True),
-        StructField("header_parse_ok", BooleanType(), nullable=False),
+        StructField("drawing_revision_date", StringType(), nullable=True),  # verbatim (spec §6)
         StructField("project_code", StringType(), nullable=True),
+        StructField("project_code_source", StringType(), nullable=True),  # authority (spec §3.1)
+        StructField("header_parse_ok", BooleanType(), nullable=False),
         StructField("ingest_date", DateType(), nullable=False),  # partition col: to_date(ingested_at)
     ]
 )
@@ -64,7 +67,7 @@ BRONZE_COLUMNS = [f.name for f in BRONZE_SCHEMA.fields]
 def create_table_sql(table: str, location: str | None, partition_by: list[str]) -> str:
     """DDL for the Bronze Delta table, with the append-only guarantee (spec §5.1).
 
-    `table` is a catalog name (e.g. schema.bronze_pid_documents). `location` sets
+    `table` is a catalog name (e.g. schema.pid_documents). `location` sets
     an external storage path if given. Partitioning defaults to ingest_date.
     """
     cols = ",\n    ".join(f"{f.name} {_sql_type(f)}" for f in BRONZE_SCHEMA.fields)

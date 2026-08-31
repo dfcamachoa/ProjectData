@@ -21,7 +21,7 @@ TABLE_PATH = str(ROOT / "_smoke" / "bronze_pid_documents")
 
 def main() -> None:
     shutil.rmtree(ROOT / "_smoke", ignore_errors=True)
-    spark = get_spark(app_name="bronze-smoke")
+    spark = get_spark(app_name="bronze-smoke", enable_hive=False)  # path-based, no metastore
     try:
         cfg = BronzeConfig(
             source_dir=str(ROOT / "sample_data"),
@@ -40,9 +40,10 @@ def main() -> None:
         df.select(
             "source_filename",
             "source_format",
-            "format_detection_method",
             "document_number",
+            "project_code",
             "drawing_revision",
+            "drawing_revision_date",
             "header_parse_ok",
             "content_hash",
         ).show(truncate=False)
