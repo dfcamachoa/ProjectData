@@ -22,6 +22,41 @@ from .config import SilverConfig
 from .spark_job import run
 
 
+def quality(
+    spark: SparkSession,
+    *,
+    silver_schema: str = "silver",
+    refdata_path: Optional[str] = None,
+    write_mode: str = "overwrite",
+    equipment_pattern: Optional[str] = None,
+    instrument_pattern: Optional[str] = None,
+    raise_on_fail: bool = True,
+) -> dict:
+    """Run Silver **Stage D** (the Great-Expectations gate) in the given notebook
+    session: evaluate the declarative suite over the four Silver tables, write the
+    ``silver_quality`` punch-list ledger, and denormalise ``quality_gate`` back
+    onto each object table. Returns the evaluator summary (+ warnings / skipped).
+    Raises ``SilverQualityError`` on a structural-invariant breach unless
+    ``raise_on_fail=False``. Does **not** stop ``spark``.
+
+        from silver.notebook import quality
+        summary = quality(spark)                       # -> silver.silver_quality
+        spark.table("silver.silver_quality").show(50, False)
+    """
+    from .quality_job import run_quality               # lazy: keep import light
+
+    cfg = SilverConfig(
+        silver_schema=silver_schema,
+        refdata_path=refdata_path,
+        write_mode=write_mode,
+    )
+    return run_quality(
+        cfg, spark=spark, raise_on_fail=raise_on_fail,
+        equipment_pattern=equipment_pattern,
+        instrument_pattern=instrument_pattern,
+    )
+
+
 def reconstruct(
     spark: SparkSession,
     *,

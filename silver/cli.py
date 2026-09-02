@@ -35,6 +35,19 @@ def main(argv=None) -> int:
     r.add_argument("--no-hive", action="store_true",
                    help="path-based only; do not use the Derby metastore")
 
+    q = sub.add_parser("quality", help="Stage D — run the quality gate, write silver_quality")
+    q.add_argument("--silver-schema", default="silver",
+                   help="schema holding the Silver tables (default: silver)")
+    q.add_argument("--refdata", default=None,
+                   help="path to Reference_Data.xlsx (fluid/unit/naming); optional")
+    q.add_argument("--write-mode", default="overwrite", choices=["overwrite", "append"])
+    q.add_argument("--equipment-pattern", default=None,
+                   help="override the equipment naming regex (else the Naming sheet)")
+    q.add_argument("--instrument-pattern", default=None,
+                   help="override the instrument naming regex (else the Naming sheet)")
+    q.add_argument("--no-raise", action="store_true",
+                   help="record structural-invariant breaches but do not abort")
+
     args = p.parse_args(argv)
 
     if args.command == "reconstruct":
@@ -50,6 +63,25 @@ def main(argv=None) -> int:
         counts = run(cfg)
         print(json.dumps(counts, indent=2))
         return 0
+
+    if args.command == "quality":
+        from .quality_job import run_quality, SilverQualityError
+        cfg = SilverConfig(
+            silver_schema=args.silver_schema,
+            refdata_path=args.refdata,
+            write_mode=args.write_mode,
+        )
+        try:
+            summary = run_quality(
+                cfg, raise_on_fail=not args.no_raise,
+                equipment_pattern=args.equipment_pattern,
+                instrument_pattern=args.instrument_pattern,
+            )
+            print(json.dumps(summary, indent=2, default=str))
+            return 0
+        except SilverQualityError as exc:
+            print(json.dumps({"error": str(exc)}, indent=2))
+            return 2
     return 1
 
 

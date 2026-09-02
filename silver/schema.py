@@ -16,6 +16,7 @@ from pyspark.sql.types import (
     StringType,
     StructField,
     StructType,
+    TimestampType,
 )
 
 _LINEAGE = [
@@ -96,3 +97,25 @@ SILVER_TABLES = {
     "silver_connections": (CONNECTION_STRUCT, "connection_id"),
     "silver_equipment": (EQUIPMENT_STRUCT, "equipment_id"),
 }
+
+# --- silver_quality: the Stage-D verdict ledger (§3.4, §4) ------------------ #
+# One row per flag occurrence — the per-drawing / per-project data-quality punch
+# list the pre-commissioning engineer fixes at source before systemization runs.
+QUALITY_STRUCT = StructType([
+    StructField("object_id", StringType()),        # the flagged object (or anchor)
+    StructField("object_kind", StringType()),      # component|segment|connection|equipment|run
+    StructField("flag", StringType(), nullable=False),   # expectation id
+    StructField("severity", StringType()),         # info|warn|error
+    StructField("gate", StringType()),             # drop|quarantine|flag|fail
+    StructField("stage", StringType()),            # "D"
+    StructField("detail", StringType()),           # human-readable punch-list line
+    StructField("drawing_number", StringType()),
+    StructField("project_code", StringType()),
+    StructField("source_format", StringType()),
+    StructField("transaction_ts", TimestampType()),
+])
+
+QUALITY_TABLE = "silver_quality"
+
+# columns of QUALITY_STRUCT in declared order (drives the pure core -> Row build)
+QUALITY_COLUMNS = [f.name for f in QUALITY_STRUCT.fields]

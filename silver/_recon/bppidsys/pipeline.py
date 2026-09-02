@@ -45,6 +45,15 @@ SEGMENT_ATTRS = (
     "FlowDirection",
     "NominalDiameter",
     "UnitCode",
+    # Insulation is a discrete GA on PostProc segments (InsulPurpose is the -H/-N
+    # seg_tag suffix). Without these three the Silver insul_* columns come back
+    # null while the composed seg_tag still shows the purpose — a Bronze->Silver
+    # drift. ItemTag / TagSuffix carry the source line tag + subline sequence.
+    "InsulType",
+    "InsulPurpose",
+    "InsulThick",
+    "ItemTag",
+    "TagSuffix",
 )
 
 
