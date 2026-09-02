@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Synthetic INGR ISO-15926 PostProc export (project B), v0.2 header shape.
-     - OriginatingSystem=SPPID => POSTPROC via ORIGINATING_SYSTEM
+     - OriginatingSystem="SPPID" and NO Application attribute; the PipingNetworkSegment
+       carries a TagName => POSTPROC via the SEGMENT_TAGNAME fallback (spec §4)
      - Drawing/@Name = EPC & client document number (identical in B): 216097C-...
      - Drawing/@Revision = current revision (authoritative): G
      - one Label per revision (Revision.StatusType="Revision"); date = TP_RevisionData
        of the Label whose RevisionNumber matches Drawing/@Revision (G => 2024/06/28)
      Structure is illustrative; confirm names against real exports (spec §6, §9). -->
 <PlantModel>
-  <PlantInformation OriginatingSystem="SPPID" SchemaVersion="ISO15926-PostProc" Date="2026-06-01"/>
+  <PlantInformation SchemaVersion="3.3.3" OriginatingSystem="SPPID" Date="2026-07-03"
+                    Is3D="no" Units="Metre" Discipline="PID"/>
   <Drawing Name="216097C-A22-PID-0021-0012-001" Revision="G" Title="ACID GAS"/>
   <Label ComponentClass="TitleBlockRevision">
     <GenericAttribute Name="Revision.StatusType" Value="Revision"/>

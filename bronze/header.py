@@ -10,12 +10,13 @@ fields are RESOLVED per detected format (spec §3.1, §6). This keeps the per-fo
 source mapping (which differs between DEXPI and PostProc) as data, not branches strewn
 through the scan.
 
-Format-detection ladder (spec §4), first match wins:
-  1. ORIGINATING_SYSTEM  — OriginatingSystem contains an SPPID marker -> POSTPROC,
-                           any other originator -> DEXPI.
-  2. SEGMENT_TAGNAME     — no usable originator: a PipingNetworkSegment carrying a
-                           TagName -> POSTPROC, else DEXPI.
-  3. UNKNOWN             — neither signal resolves; the file is still landed.
+Format-detection ladder (spec §4), first match wins. NOTE: both DEXPI and PostProc
+are exported by SmartPlant P&ID with OriginatingSystem="SPPID", so OriginatingSystem
+is captured only as lineage and is NOT used to decide format.
+  1. APPLICATION     — PlantInformation/@Application contains "Dexpi" -> DEXPI.
+  2. SEGMENT_TAGNAME — else a PipingNetworkSegment carrying a TagName -> POSTPROC;
+                       segments present but untagged -> DEXPI.
+  3. UNKNOWN         — neither signal resolves; the file is still landed.
 
 Revision capture (spec §6):
   * DEXPI:    current revision = highest-numbered populated RevRow{N}No; its
@@ -38,7 +39,7 @@ from .config import HeaderFieldConfig
 FORMAT_DEXPI = "DEXPI"
 FORMAT_POSTPROC = "POSTPROC"
 
-METHOD_ORIGINATING_SYSTEM = "ORIGINATING_SYSTEM"
+METHOD_APPLICATION = "APPLICATION"
 METHOD_SEGMENT_TAGNAME = "SEGMENT_TAGNAME"
 METHOD_UNKNOWN = "UNKNOWN"
 
@@ -117,10 +118,12 @@ def _first(d: Dict[str, str], keys) -> Optional[str]:
 @dataclass
 class _Collected:
     originating: Optional[str] = None
+    application: Optional[str] = None                           # PlantInformation/@Application
     tb_attrs: Dict[str, str] = field(default_factory=dict)      # title-block element attrs
     generics: Dict[str, str] = field(default_factory=dict)      # flat GenericAttribute name->value
     revrows: Dict[int, Dict[str, str]] = field(default_factory=dict)  # DEXPI RevRow{N} -> {No,Date}
-    labels: List[Dict[str, str]] = field(default_factory=list)  # PostProc revision Labels
+    labels: List[Dict[str, str]] = field(default_factory=list)  # PostProc revision Labels (grouped)
+    rev_dates: List[str] = field(default_factory=list)  # every Revision.TP_RevisionData seen (flat)
     segment_element_seen: bool = False
     segment_tagname_seen: bool = False
 
@@ -135,22 +138,34 @@ def _scan(content: bytes, cfg: HeaderFieldConfig) -> tuple[_Collected, bool, int
         rf"^{re.escape(cfg.dexpi_revrow_prefix)}(\d+)"
         rf"({re.escape(cfg.dexpi_revrow_no_suffix)}|{re.escape(cfg.dexpi_revrow_date_suffix)})$"
     )
-    label_tags = set(cfg.postproc_label_tags)
-    # stack of label-group dicts for GenericAttributes nested under a Label
-    label_stack: List[Dict[str, str]] = []
+    # getattr-guarded so a stale config (older field set) degrades instead of
+    # crashing — the code and config should still be replaced as a matched set.
+    rev_prefix = getattr(cfg, "postproc_rev_generic_prefix", "Revision.")
+    rev_number_name = getattr(cfg, "postproc_rev_number_name", "Revision.RevisionNumber")
+    rev_date_name = getattr(cfg, "postproc_rev_date_name", "Revision.TP_RevisionData")
+    ga_tag = cfg.generic_attribute_tag
+    # Frame stack: one dict per open NON-GenericAttribute element, collecting the
+    # Revision.* GenericAttributes that are its direct children. The element's own
+    # tag is not relied upon — any element that directly holds Revision.* fields is
+    # treated as a revision-label group (spec §6; robust to the real export's tag).
+    frame_stack: List[Dict[str, str]] = []
 
     def _record_generic(name: str, value: str) -> None:
         # RevRow{N}No / RevRow{N}Date (DEXPI revision history)
         m = revrow_re.match(name)
         if m:
-            n = int(m.group(1))
-            c.revrows.setdefault(n, {})[m.group(2)] = value
+            c.revrows.setdefault(int(m.group(1)), {})[m.group(2)] = value
             return
-        if label_stack:
-            # a Revision.* field belonging to the current Label group
-            label_stack[-1][name] = value
-        else:
-            c.generics.setdefault(name, value)
+        # Revision.* -> the enclosing element's revision-label group (PostProc).
+        if name.startswith(rev_prefix):
+            # Also collect every revision date flat, so the "latest date" fallback
+            # works regardless of how the labels nest (robust to unknown wrappers).
+            if name == rev_date_name:
+                c.rev_dates.append(value)
+            if frame_stack:
+                frame_stack[-1].setdefault(name, value)
+            return
+        c.generics.setdefault(name, value)
 
     try:
         for event, elem in iterparse(io.BytesIO(content), events=("start", "end")):
@@ -159,32 +174,36 @@ def _scan(content: bytes, cfg: HeaderFieldConfig) -> tuple[_Collected, bool, int
             if event == "start":
                 seen += 1
                 attrib = elem.attrib
+                is_ga = tag == ga_tag
 
                 if c.originating is None:
                     found = _first(attrib, cfg.originating_system_attrs)
                     if found:
                         c.originating = found
+                if c.application is None:
+                    app = _first(attrib, cfg.application_attrs)
+                    if app:
+                        c.application = app
 
                 if tag in cfg.title_block_tags:
                     for k, v in attrib.items():
                         cv = _clean(v)
                         if cv is not None:
                             c.tb_attrs.setdefault(_local_tag(k), cv)
-                    # RevRow* can also appear as flat title-block attributes
                     for k, v in attrib.items():
                         m = revrow_re.match(_local_tag(k))
                         cv = _clean(v)
                         if m and cv is not None:
                             c.revrows.setdefault(int(m.group(1)), {})[m.group(2)] = cv
 
-                if tag in label_tags:
-                    label_stack.append({})
-
-                if tag == cfg.generic_attribute_tag:
+                if is_ga:
                     name = _clean(attrib.get(cfg.generic_attribute_name_key))
                     value = _clean(attrib.get(cfg.generic_attribute_value_key))
                     if name and value is not None:
                         _record_generic(name, value)
+                else:
+                    # A non-GA element opens a potential revision-label group.
+                    frame_stack.append({})
 
                 if tag in cfg.segment_element_tags:
                     c.segment_element_seen = True
@@ -192,24 +211,34 @@ def _scan(content: bytes, cfg: HeaderFieldConfig) -> tuple[_Collected, bool, int
                         c.segment_tagname_seen = True
 
                 # budget control
-                have_id = _first(c.tb_attrs, ["Name", "Number"]) is not None or bool(
-                    c.generics
+                is_dexpi_hint = c.application is not None and any(
+                    m.lower() in c.application.lower()
+                    for m in cfg.dexpi_application_markers
                 )
-                if c.originating is not None:
+                if is_dexpi_hint:
+                    # DEXPI identity + RevRow revision history live in the title
+                    # block near the top; a header-sized budget suffices.
                     if seen >= cfg.header_element_budget:
                         break
                 else:
-                    if c.segment_tagname_seen and have_id:
-                        break
+                    # PostProc revision labels are scattered through the file, so we
+                    # do NOT stop at a header budget — the early-exit below stops us
+                    # once the current revision's dated label is found AND the format
+                    # is classifiable. This absolute cap only bounds the pathological
+                    # case (no such label).
                     if seen >= cfg.segment_scan_element_budget:
                         break
 
             else:  # end
-                if tag in label_tags and label_stack:
-                    group = label_stack.pop()
-                    if group.get(cfg.postproc_rev_status_name) == cfg.postproc_rev_status_value:
+                if tag != ga_tag and frame_stack:
+                    group = frame_stack.pop()
+                    # A group that carries a RevisionNumber is a revision label.
+                    if group.get(rev_number_name) is not None:
                         c.labels.append(group)
                 elem.clear()
+                # No early-exit: PostProc takes the LATEST revision (by date), so we
+                # must see every revision label. The absolute element cap (in the
+                # start branch) bounds the scan.
     except ParseError:
         parse_error = True
 
@@ -224,13 +253,31 @@ def _resolve_revision(
     rev_date: Optional[str] = None
 
     if source_format == FORMAT_POSTPROC:
-        # Current revision stated directly on the Drawing header.
-        rev = _clean(c.tb_attrs.get(cfg.postproc_current_revision_attr))
-        if rev is not None:
-            for lab in c.labels:
-                if _clean(lab.get(cfg.postproc_rev_number_name)) == rev:
-                    rev_date = _clean(lab.get(cfg.postproc_rev_date_name))
-                    break
+        # Project decision: for PostProc, take the LATEST logged revision as a
+        # consistent PAIR — the Revision.RevisionNumber that is the companion of the
+        # latest Revision.TP_RevisionData — rather than reading the number from
+        # Drawing/@Revision (whose letter can run ahead of the last logged revision,
+        # leaving a number/date mismatch). PostProc dates are YYYY/MM/DD, so the
+        # lexical max date is the chronological latest.
+        best_date: Optional[str] = None
+        best_num: Optional[str] = None
+        for lab in c.labels:
+            d = _clean(lab.get(cfg.postproc_rev_date_name))
+            if d is None:
+                continue
+            if best_date is None or d > best_date:
+                best_date = d
+                best_num = _clean(lab.get(cfg.postproc_rev_number_name))
+        if best_date is not None:
+            rev = best_num          # companion RevisionNumber of the latest date
+            rev_date = best_date
+        else:
+            # No dated revision labels grouped — fall back to the Drawing header for
+            # the number and the flat latest date (robust to unknown label nesting).
+            rev = _clean(c.tb_attrs.get(cfg.postproc_current_revision_attr))
+            dates = [d for d in (_clean(x) for x in c.rev_dates) if d is not None]
+            if dates:
+                rev_date = max(dates)
 
     if rev is None and c.revrows:
         # DEXPI: current revision = highest-numbered populated RevRow{N}No.
@@ -312,18 +359,17 @@ def parse_header(content: bytes, cfg: Optional[HeaderFieldConfig] = None) -> Hea
     c, parse_error, seen = _scan(content, cfg)
 
     # --- resolve format (spec §4) ---
+    # OriginatingSystem is "SPPID" for BOTH formats, so it is captured only as
+    # lineage; the discriminator is PlantInformation/@Application.
     source_format = None
     method = METHOD_UNKNOWN
-    if c.originating:
-        upper = c.originating.upper()
-        if any(m.upper() in upper for m in cfg.postproc_originating_markers):
-            source_format = FORMAT_POSTPROC
-        else:
-            source_format = FORMAT_DEXPI
-        method = METHOD_ORIGINATING_SYSTEM
+    app = (c.application or "").lower()
+    if app and any(m.lower() in app for m in cfg.dexpi_application_markers):
+        source_format, method = FORMAT_DEXPI, METHOD_APPLICATION
     elif c.segment_tagname_seen:
         source_format, method = FORMAT_POSTPROC, METHOD_SEGMENT_TAGNAME
     elif c.segment_element_seen:
+        # segments present but none tagged -> the DEXPI side of the structural test
         source_format, method = FORMAT_DEXPI, METHOD_SEGMENT_TAGNAME
     else:
         source_format, method = None, METHOD_UNKNOWN

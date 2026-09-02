@@ -1,12 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Synthetic DEXPI/Proteus P&ID export (project A), v0.2 header shape.
-     - OriginatingSystem => DEXPI via ORIGINATING_SYSTEM
+     - OriginatingSystem="SPPID" (same as PostProc) + Application="Dexpi"
+       => DEXPI via the APPLICATION marker (spec §4)
      - EPC document number = OperationCenterDocNo GenericAttribute (215777C-...)
      - client document number = DrawingNumber (362-92-PR-PID-02231)
      - revision history as RevRow{N}No/Date/Desc; current = highest N (RevRow2 = C)
      Structure is illustrative; confirm names against real exports (spec §6, §9). -->
 <PlantModel>
-  <PlantInformation OriginatingSystem="SmartPlant P&amp;ID" SchemaVersion="3.6.1" Date="2026-05-10"/>
+  <PlantInformation SchemaVersion="4.1.1" OriginatingSystem="SPPID" Date="2026-05-26"
+                    Is3D="no" Units="Metre" Discipline="PID"
+                    Application="Dexpi" ApplicationVersion="1.3.1"/>
   <Drawing DrawingNumber="362-92-PR-PID-02231" Title="LOW PRESSURE STEAM">
     <GenericAttributes Number="6">
       <GenericAttribute Name="OperationCenterDocNo" Value="215777C-36292-PID-0031-02231"/>

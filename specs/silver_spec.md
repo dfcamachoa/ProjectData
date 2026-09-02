@@ -3,10 +3,26 @@
 **Data Product:** Automatic Pre-commissioning Systemization based on P&ID interoperability data
 **Layer:** Silver (parse · reconstruct · assemble · quality-gate · CDC) — the second medallion tier
 **Target runtime:** Delta Lake on Apache Spark (PySpark), with per-drawing Python UDFs
-**Status:** Draft v0.1
-**Date:** 2026-08-29
+**Status:** Draft v0.1 — **Phase-1 (A+B+persist) IMPLEMENTED & VALIDATED** (see box)
+**Date:** 2026-08-29 (impl. note 2026-08-31)
 **Companions:** `bronze_layer_spec.md`, `medallion_rdf_ido_strategy_mapping.md` (§2, §3.2–§3.4, §6), `data_specification.md` (§2, §4.2), `algorithm_spec.md` (§3–§5, §11), `systemization_spec.md`, `architecture_note.md` (§2, §2a, §5).
 **Grounding:** every code reference below is to the actual `pidsys` / `pidtool` / `bppidsys` source (`pidsys/master_data.py`, `pidsys/reconstructed.py`, `pidsys/refdata.py`, `pidtool/pipeline.py`, `bppidsys/`), read at repo `main`. Where the strategy note and the real code differ, the code wins and the gap is named.
+
+---
+
+> ## Implementation status — Phase-1 (Stage A + B + persist)
+>
+> **Built & validated end-to-end** in the `ProjectData` repo (`silver/` package) on local WSL + Spark local mode + Delta + embedded Derby. The validated `pidtool`/`bppidsys`/`pidsys` reconstruction is **vendored** under `silver/_recon/` (only master data + connectivity — *not* `walk.py`/`validate.py`, keeping Silver use-case-neutral) and re-housed, not re-derived. The Spark job reads `bronze.pid_documents`, picks the adapter from `source_format`, builds the DOM from the `content` bytes via `Doc.from_bytes` (no re-sniffing, no temp files), runs `Pipeline(...).run()` + `stamp_master_data`, and writes `silver_components` / `silver_segments` / `silver_connections` / `silver_equipment`.
+>
+> **Validation (4 real Project-A DEXPI sheets):** 1,566 components (190 valves) · 713 segments · 1,385 connections · 3 equipment. The oracle firewall (§5) is visible in the data — `src_turnover` is populated but on no computed column. `flow_sense` shows all four states in the wild (forward 631 / reverse 632 / **none 121** / **both 1**), confirming the enum over a boolean (§4). Per-edge `derived` splits ~1,028 Derived / ~357 Source.
+>
+> **Format parity — CONFIRMED on real data (Silver #7 closed).** Adding 5 real Project-B PostProc sheets to Bronze and rebuilding: both formats coexist in one code path with identical schema. PostProc: 1,987 components (232 valves) · 807 segments · 1,396 connections · 9 equipment; DEXPI: 1,566 · 713 · 1,385 · 3. PostProc reconstructs *rich* topology (the `bppidsys` adapter, not just parsing), and **all four `flow_sense` states appear in BOTH formats** (PostProc none 135 / forward 616 / reverse 636 / both 9) — the strongest validation of the enum-over-boolean choice. The ghost filter is format-independent (9 real equipment from PostProc's 1,987 components).
+>
+> **Real-data confirmation of the §3.5 anchor-collision risk:** distinct `segment_id`s were observed composing to the **same** `seg_tag` (e.g. three segments → `2"-SV-36209-1B6AS-N`). So the composed seg tag is **not unique** and cannot stand alone as the segment anchor for CDC — Stage E's segment identity must be `(drawing, seg_tag)` **plus a disambiguator**, and Stage D must raise an anchor-collision flag. This is now confirmed on real data, not theoretical.
+>
+> **Runtime lesson (§8.4):** embedded Derby is single-session, so a `!python -m silver.cli` **subprocess** writes into a *different* metastore than a live notebook SparkSession — the tables exist but the notebook can't resolve them by name. Drive Silver **in-session** (`run(cfg, spark=spark)`), or read the managed tables by path, or run path-based (`enable_hive=False`). Never mix a live notebook session with a `!` subprocess against one Derby.
+>
+> **Not yet built:** Stage C (OPC assembly), Stage D (Great Expectations → `silver_quality`), Stage E (object-grain CDC). `quality_gate` exists on every row, defaults `clean`; `connection_id` is element-id-keyed for this single-version build (anchor identity layers on in Stage E without changing the row shape).
 
 ---
 

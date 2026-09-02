@@ -31,7 +31,26 @@ Expected `smoke_local.py` outcome (verified 2026-08-28 on WSL Ubuntu, Python 3.8
   landed with `header_parse_ok = false` (flagged, not rejected).
 - "Idempotency + uniqueness checks passed."
 
-### Two WSL gotchas that matter
+### A third gotcha: a system Spark shadowing the venv
+
+If a Spark is installed under `/opt/spark` (or anywhere) and your shell exports
+`SPARK_HOME` / `PYTHONPATH`, Python imports **that** Spark instead of the venv's
+`pyspark`. When their major versions differ from `delta-spark`, you get a cryptic
+crash — e.g. Spark 4.x + `delta-spark==3.2.0` fails with
+`ImportError: cannot import name '_to_seq'` and a `DeltaSparkSessionExtension`
+class-not-found. `get_spark()` now **preflights** this and prints a clear message,
+but the fix is:
+
+```bash
+env | grep -E 'SPARK_HOME|PYTHONPATH'    # spot the interloper
+unset SPARK_HOME PYTHONPATH              # use the venv's matched pyspark/delta
+python -c "import pyspark; print(pyspark.__version__, pyspark.__file__)"  # expect 3.5.1 from .venv
+```
+
+Keep the pinned pair consistent: **pyspark 3.5.x ↔ delta-spark 3.x** (or pyspark 4.x
+↔ delta-spark 4.x — never mixed).
+
+### Two more WSL gotchas that matter
 
 1. **Keep the project and the Delta table on the Linux filesystem** (`~/...`), not on
    the Windows mount (`/mnt/c/...`). The Windows drive mount under WSL is slow and its

@@ -13,7 +13,7 @@ import pytest
 from bronze.header import (
     FORMAT_DEXPI,
     FORMAT_POSTPROC,
-    METHOD_ORIGINATING_SYSTEM,
+    METHOD_APPLICATION,
     METHOD_SEGMENT_TAGNAME,
     METHOD_UNKNOWN,
     PC_SOURCE_DOCUMENT_NUMBER,
@@ -34,7 +34,9 @@ def _read(name: str) -> bytes:
 def test_dexpi_epc_docnumber_client_and_revrow():
     info = parse_header(_read("projectA_dexpi_02231.xml"))
     assert info.source_format == FORMAT_DEXPI
-    assert info.format_detection_method == METHOD_ORIGINATING_SYSTEM
+    # both formats are OriginatingSystem=SPPID; DEXPI is decided by Application="Dexpi"
+    assert info.format_detection_method == METHOD_APPLICATION
+    assert info.originating_system == "SPPID"
     # EPC number from OperationCenterDocNo; client from DrawingNumber
     assert info.document_number == "215777C-36292-PID-0031-02231"
     assert info.client_document_number == "362-92-PR-PID-02231"
@@ -52,7 +54,9 @@ def test_dexpi_epc_docnumber_client_and_revrow():
 def test_postproc_drawing_revision_and_label_date():
     info = parse_header(_read("projectB_postproc_0012.xml"))
     assert info.source_format == FORMAT_POSTPROC
-    assert info.format_detection_method == METHOD_ORIGINATING_SYSTEM
+    # PostProc has OriginatingSystem=SPPID and NO Application; classified by TagName
+    assert info.format_detection_method == METHOD_SEGMENT_TAGNAME
+    assert info.originating_system == "SPPID"
     # both numbers are Drawing/@Name (identical in project B)
     assert info.document_number == "216097C-A22-PID-0021-0012-001"
     assert info.client_document_number == "216097C-A22-PID-0021-0012-001"
@@ -68,6 +72,111 @@ def test_postproc_picks_the_matching_label_not_the_first():
     info = parse_header(_read("projectB_postproc_0012.xml"))
     assert info.drawing_revision_date == "2024/06/28"
     assert info.drawing_revision_date != "2024/03/03"
+
+
+def test_postproc_revision_label_wrapper_tag_is_not_hardcoded():
+    # Revision.* fields grouped by ANY enclosing element, not just <Label> — here
+    # the wrapper is <Component>. The date must still resolve for current rev F.
+    xml = b"""<?xml version="1.0"?>
+    <PlantModel>
+      <PlantInformation OriginatingSystem="SPPID"/>
+      <Drawing Name="216097C-A14-PID-0005-001" Revision="F"/>
+      <Component>
+        <GenericAttribute Name="Revision.StatusType" Value="Revision"/>
+        <GenericAttribute Name="Revision.RevisionNumber" Value="E"/>
+        <GenericAttribute Name="Revision.TP_RevisionData" Value="2024/05/01"/>
+      </Component>
+      <Component>
+        <GenericAttribute Name="Revision.StatusType" Value="Revision"/>
+        <GenericAttribute Name="Revision.RevisionNumber" Value="F"/>
+        <GenericAttribute Name="Revision.TP_RevisionData" Value="2024/09/15"/>
+      </Component>
+      <PipingNetworkSystem>
+        <PipingNetworkSegment ID="SG" TagName="PG-1"/>
+      </PipingNetworkSystem>
+    </PlantModel>"""
+    info = parse_header(xml)
+    assert info.source_format == FORMAT_POSTPROC
+    assert info.drawing_revision == "F"
+    assert info.drawing_revision_date == "2024/09/15"
+
+
+def test_postproc_takes_latest_revision_number_and_date_as_a_pair():
+    # The revision NUMBER and DATE are the companion pair of the latest logged
+    # revision (max date), regardless of Drawing/@Revision or document order.
+    # Here the latest date (2026/05/08) belongs to E, and the labels are out of
+    # order in the file — the parser must still pick E, not B and not the header F.
+    xml = b"""<?xml version="1.0"?>
+    <PlantModel>
+      <PlantInformation OriginatingSystem="SPPID"/>
+      <Drawing Name="216097C-A14-PID-0005-001" Revision="F"/>
+      <PipingNetworkSystem>
+        <PipingNetworkSegment ID="SG" TagName="PG-1"/>
+      </PipingNetworkSystem>
+      <Rev>
+        <GenericAttribute Name="Revision.RevisionNumber" Value="E"/>
+        <GenericAttribute Name="Revision.TP_RevisionData" Value="2026/05/08"/>
+      </Rev>
+      <Rev>
+        <GenericAttribute Name="Revision.RevisionNumber" Value="B"/>
+        <GenericAttribute Name="Revision.TP_RevisionData" Value="2024/03/03"/>
+      </Rev>
+    </PlantModel>"""
+    info = parse_header(xml)
+    assert info.source_format == FORMAT_POSTPROC
+    assert info.drawing_revision == "E"                 # companion of the latest date
+    assert info.drawing_revision_date == "2026/05/08"   # latest, not B's, not header F
+
+
+def test_postproc_labels_after_the_first_segment_are_still_read():
+    # Budget fix: a tagged segment appears BEFORE the revision labels; the scan must
+    # keep reading through the header region rather than stopping at the segment.
+    xml = b"""<?xml version="1.0"?>
+    <PlantModel>
+      <PlantInformation OriginatingSystem="SPPID"/>
+      <Drawing Name="216097C-A14-PID-0005-001" Revision="F"/>
+      <PipingNetworkSystem>
+        <PipingNetworkSegment ID="SG" TagName="PG-1"/>
+      </PipingNetworkSystem>
+      <Component>
+        <GenericAttribute Name="Revision.RevisionNumber" Value="F"/>
+        <GenericAttribute Name="Revision.TP_RevisionData" Value="2024/09/15"/>
+      </Component>
+    </PlantModel>"""
+    info = parse_header(xml)
+    assert info.source_format == FORMAT_POSTPROC
+    assert info.drawing_revision_date == "2024/09/15"
+
+
+# --- format detection: both formats are OriginatingSystem=SPPID -------------
+
+def test_sppid_alone_does_not_imply_postproc():
+    # Regression: OriginatingSystem=SPPID with NO Application and NO tagged segment
+    # must NOT be classified as a format on the strength of SPPID (it is not a signal).
+    xml = b"""<?xml version="1.0"?>
+    <PlantModel>
+      <PlantInformation OriginatingSystem="SPPID"/>
+      <Drawing Name="Z-1" Revision="1"/>
+    </PlantModel>"""
+    info = parse_header(xml)
+    assert info.source_format is None
+    assert info.format_detection_method == METHOD_UNKNOWN
+
+
+def test_application_marker_wins_over_segment_tagname():
+    # A DEXPI file (Application="Dexpi", OriginatingSystem="SPPID") that also happens
+    # to carry a tagged segment must resolve DEXPI — Application precedes the fallback.
+    xml = b"""<?xml version="1.0"?>
+    <PlantModel>
+      <PlantInformation OriginatingSystem="SPPID" Application="Dexpi"/>
+      <Drawing Number="215777C-1" Revision="A"/>
+      <PipingNetworkSystem>
+        <PipingNetworkSegment ID="SG" TagName="PG-1"/>
+      </PipingNetworkSystem>
+    </PlantModel>"""
+    info = parse_header(xml)
+    assert info.source_format == FORMAT_DEXPI
+    assert info.format_detection_method == METHOD_APPLICATION
 
 
 # --- format detection fallbacks --------------------------------------------
@@ -108,8 +217,8 @@ def test_unknown_when_no_originator_and_no_segments():
 
 def test_malformed_lands_and_flags_not_ok():
     info = parse_header(_read("malformed_truncated.xml"))
-    assert info.source_format == FORMAT_DEXPI
-    assert info.format_detection_method == METHOD_ORIGINATING_SYSTEM
+    assert info.source_format == FORMAT_DEXPI          # Application marker read first
+    assert info.format_detection_method == METHOD_APPLICATION
     # the Drawing title block broke before doc/rev could be read
     assert info.document_number is None
     assert info.drawing_revision is None

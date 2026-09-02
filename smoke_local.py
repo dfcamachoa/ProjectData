@@ -26,7 +26,8 @@ def main() -> None:
         cfg = BronzeConfig(
             source_dir=str(ROOT / "sample_data"),
             table_path=TABLE_PATH,
-            project_code="SMOKE",
+            # no project_code override — let it derive from each file's EPC
+            # document number so the demo shows 215777C / 216097C / A22 (§3.1).
         )
 
         print("First ingest:")

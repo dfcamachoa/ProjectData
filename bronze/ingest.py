@@ -207,6 +207,7 @@ def ingest(spark: SparkSession, cfg: BronzeConfig, ingest_run_id: str | None = N
     if cfg.project_code:
         delim = cfg.header.project_code_delimiter
         idx = cfg.header.project_code_token_index
+        # F.split takes a string (regex) pattern, not a Column; element_at is 1-indexed.
         derived_token = F.element_at(F.split(F.col("document_number"), delim), idx + 1)
         mismatches = batch.filter(
             F.col("document_number").isNotNull()

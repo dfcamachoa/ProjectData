@@ -26,9 +26,24 @@ if sys.executable:
         else:
             os.environ.pop("PYTHONPATH", None)
 
-# Keep system-wide Spark available if explicitly configured, but do not point at
-# a Python-version-specific path in the repo venv.
+# A system SPARK_HOME (e.g. /opt/spark) makes pyspark launch that install, whose
+# classpath has NO Delta JARs -> "Cannot find catalog plugin ... DeltaCatalog".
+# Drop it so pyspark uses the venv's own bundled Spark, and strip /opt/spark from
+# sys.path so `import pyspark` resolves to the venv, not the system tree.
+if os.environ.get("SPARK_HOME", "").startswith("/opt/spark"):
+    os.environ.pop("SPARK_HOME", None)
+sys.path[:] = [p for p in sys.path if "/opt/spark" not in p]
+
 from pyspark.sql import SparkSession
+
+
+# Repo root (…/ProjectData), so the metastore + warehouse are PINNED to fixed
+# absolute paths regardless of the process's working directory. This is what makes
+# a notebook session and a `python -m …` subprocess share ONE catalog + warehouse
+# (spec §8.4). Override with env vars for a different location.
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+WAREHOUSE_DIR = os.environ.get("PIDDATA_WAREHOUSE", os.path.join(_REPO, "spark-warehouse"))
+METASTORE_DB = os.environ.get("PIDDATA_METASTORE_DB", os.path.join(_REPO, "metastore_db"))
 
 
 def get_spark(
@@ -39,9 +54,12 @@ def get_spark(
     """Build a Delta-enabled SparkSession.
 
     enable_hive (spec §8.4): register named tables in the embedded Apache Derby
-    Hive metastore (auto-creates ./metastore_db on first use), so a name like
-    ``bronze.pid_documents`` resolves. Single-session only — stop one Spark session
-    before starting another. Set False for path-based-only use (no metastore).
+    Hive metastore, so a name like ``bronze.pid_documents`` resolves. The metastore
+    (``metastore_db``) and warehouse (``spark-warehouse``) are PINNED to the repo
+    root (see WAREHOUSE_DIR / METASTORE_DB) so every session — notebook or
+    subprocess, any CWD — uses the SAME catalog. Still single-session (embedded
+    Derby): don't run a `!` subprocess while a notebook session is live. Set
+    enable_hive False for path-based-only use (no metastore).
     A modest Arrow batch size keeps per-task memory low with ~13 MB payloads.
     """
     builder = (
@@ -54,9 +72,16 @@ def get_spark(
         )
         # keep Arrow batches small so a task never buffers many large blobs (§8.2)
         .config("spark.sql.execution.arrow.maxRecordsPerBatch", "64")
+        # PIN the warehouse so managed-table data always lands in one place (§8.4)
+        .config("spark.sql.warehouse.dir", f"file:{WAREHOUSE_DIR}")
     )
     if enable_hive:
-        builder = builder.enableHiveSupport()
+        builder = builder.enableHiveSupport().config(
+            # spark.hadoop.* is forwarded to the Hive/Derby conf; the bare
+            # javax.jdo.* key is NOT, so it must carry this prefix to take effect.
+            "spark.hadoop.javax.jdo.option.ConnectionURL",
+            f"jdbc:derby:;databaseName={METASTORE_DB};create=true",
+        )
     for k, v in (extra_conf or {}).items():
         builder = builder.config(k, v)
 

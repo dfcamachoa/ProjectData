@@ -14,7 +14,7 @@ from .config import BronzeConfig, HeaderFieldConfig
 from .header import (
     FORMAT_DEXPI,
     FORMAT_POSTPROC,
-    METHOD_ORIGINATING_SYSTEM,
+    METHOD_APPLICATION,
     METHOD_SEGMENT_TAGNAME,
     METHOD_UNKNOWN,
     HeaderInfo,
@@ -30,7 +30,7 @@ __all__ = [
     "compute_hash",
     "FORMAT_DEXPI",
     "FORMAT_POSTPROC",
-    "METHOD_ORIGINATING_SYSTEM",
+    "METHOD_APPLICATION",
     "METHOD_SEGMENT_TAGNAME",
     "METHOD_UNKNOWN",
 ]

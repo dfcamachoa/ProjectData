@@ -62,10 +62,15 @@ is testable and reusable without PySpark. The Spark job imports are lazy, so
 
 ## Format-detection ladder (§4)
 
-1. **`ORIGINATING_SYSTEM`** — `OriginatingSystem` contains an `SPPID` marker →
-   `POSTPROC`; any other originator → `DEXPI`. (Cheap, header-only, preferred.)
-2. **`SEGMENT_TAGNAME`** — no usable originator: a `PipingNetworkSegment` carrying a
-   `TagName` → `POSTPROC`, else `DEXPI`. Mirrors `reconstructed._adapter_for`.
+Both DEXPI and PostProc are exported by SmartPlant P&ID with
+`OriginatingSystem="SPPID"`, so **`OriginatingSystem` is not a format signal** — it is
+captured only as lineage. The discriminator is `PlantInformation/@Application`:
+
+1. **`APPLICATION`** — `PlantInformation/@Application` contains `Dexpi` (DEXPI exports
+   carry `Application="Dexpi"`, `ApplicationVersion="1.3.1"`) → `DEXPI`.
+2. **`SEGMENT_TAGNAME`** — else a `PipingNetworkSegment` carrying a `TagName` →
+   `POSTPROC` (PostProc has no `Application`); segments present but untagged → `DEXPI`.
+   Mirrors `reconstructed._adapter_for`.
 3. **`UNKNOWN`** — neither resolves; the file is still landed.
 
 Bronze **records** the classification; Silver **acts** on it (§4).

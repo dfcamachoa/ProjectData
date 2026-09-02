@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Malformed export: the title block is broken before the revision can be read.
-     Bronze must still land it, resolve format from OriginatingSystem, and flag
+     Bronze must still land it, resolve format from the Application marker, and flag
      header_parse_ok=false (spec §7) rather than reject it. -->
 <PlantModel>
-  <PlantInformation OriginatingSystem="SmartPlant P&amp;ID"/>
+  <PlantInformation OriginatingSystem="SPPID" Application="Dexpi" ApplicationVersion="1.3.1"/>
   <Drawing Name="362-09-PR-PID-09999" Number="215777C-36209-PID-0021-09999" Revision=03

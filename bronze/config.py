@@ -29,10 +29,22 @@ class HeaderFieldConfig:
     (master_data.ga / reconstructed._adapter_for). See spec §1.2 and §4.
     """
 
-    # Attribute carrying the exporting system, e.g. "SPPID" (PostProc) or a
-    # DEXPI originator string. Read from any element bearing this attribute.
+    # Attribute carrying the exporting system. NOTE: both DEXPI and PostProc are
+    # exported by SmartPlant P&ID with OriginatingSystem="SPPID", so this is NOT a
+    # format discriminator — it is captured only as lineage. Format is decided by
+    # the Application marker below (spec §4).
     originating_system_attrs: List[str] = field(
         default_factory=lambda: ["OriginatingSystem", "originatingSystem"]
+    )
+
+    # Format discriminator (spec §4): PlantInformation/@Application. DEXPI exports
+    # carry Application="Dexpi" (e.g. with ApplicationVersion="1.3.1"); PostProc
+    # exports carry no Application attribute. Read from any element bearing it.
+    application_attrs: List[str] = field(
+        default_factory=lambda: ["Application"]
+    )
+    dexpi_application_markers: List[str] = field(
+        default_factory=lambda: ["Dexpi"]
     )
 
     # Title-block-like elements whose attributes carry drawing identity
@@ -95,11 +107,15 @@ class HeaderFieldConfig:
     # (authoritative — no max-by-sequence inference). The date is the
     # TP_RevisionData of the revision Label whose RevisionNumber matches it.
     postproc_current_revision_attr: str = "Revision"
-    postproc_label_tags: List[str] = field(default_factory=lambda: ["Label"])
     postproc_rev_status_name: str = "Revision.StatusType"
     postproc_rev_status_value: str = "Revision"
     postproc_rev_number_name: str = "Revision.RevisionNumber"
     postproc_rev_date_name: str = "Revision.TP_RevisionData"
+    # A revision Label is detected structurally — any element that directly
+    # contains GenericAttributes whose Name starts with this prefix is treated as
+    # a revision-label group (the element's own tag name is NOT relied upon, since
+    # it varies by export). Robust to <Label>, <Component>, <PlantItem>, etc.
+    postproc_rev_generic_prefix: str = "Revision."
 
     # Generic fallback revision sources (older/other exports, or the synthetic
     # samples): a plain Revision / RevisionDate attribute or GenericAttribute.
@@ -116,18 +132,20 @@ class HeaderFieldConfig:
         default_factory=lambda: ["RevisionDate", "IssueDate"]
     )
 
-    # --- Format-detection signals (spec §4) ---------------------------------
-    postproc_originating_markers: List[str] = field(
-        default_factory=lambda: ["SPPID"]
-    )
+    # --- Structural fallback signal (spec §4) -------------------------------
+    # When no Application marker resolves, a PipingNetworkSegment carrying a
+    # TagName marks PostProc (mirrors reconstructed._adapter_for).
     segment_element_tags: List[str] = field(
         default_factory=lambda: ["PipingNetworkSegment"]
     )
     segment_tagname_attrs: List[str] = field(default_factory=lambda: ["TagName"])
 
     # --- Parser budgets (keep the scan shallow; ~13 MB files, spec §4/§8.2) ---
-    header_element_budget: int = 800
-    segment_scan_element_budget: int = 40000
+    # Cover the whole title block (Drawing header + revision labels), which can sit
+    # after the first PipingNetworkSegment, before stopping. Elements are small, so
+    # a few thousand is cheap even on a 13 MB file; the network body is skipped.
+    header_element_budget: int = 6000
+    segment_scan_element_budget: int = 60000
 
 
 @dataclass
