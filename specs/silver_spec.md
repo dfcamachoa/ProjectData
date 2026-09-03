@@ -3,14 +3,14 @@
 **Data Product:** Automatic Pre-commissioning Systemization based on P&ID interoperability data
 **Layer:** Silver (parse · reconstruct · assemble · quality-gate · CDC) — the second medallion tier
 **Target runtime:** Delta Lake on Apache Spark (PySpark), with per-drawing Python UDFs
-**Status:** Draft v0.1 — **Phase-1 (A+B+persist) + Stage D (quality gate) IMPLEMENTED & VALIDATED** (see box)
+**Status:** Draft v0.1 — **Phase-1 (A+B+persist) + Stage C (assembly) + Stage D (quality gate) IMPLEMENTED & VALIDATED** (see box)
 **Date:** 2026-08-29 (impl. note 2026-08-31; Stage D 2026-09-02)
 **Companions:** `bronze_layer_spec.md`, `medallion_rdf_ido_strategy_mapping.md` (§2, §3.2–§3.4, §6), `data_specification.md` (§2, §4.2), `algorithm_spec.md` (§3–§5, §11), `systemization_spec.md`, `architecture_note.md` (§2, §2a, §5).
 **Grounding:** every code reference below is to the actual `pidsys` / `pidtool` / `bppidsys` source (`pidsys/master_data.py`, `pidsys/reconstructed.py`, `pidsys/refdata.py`, `pidtool/pipeline.py`, `bppidsys/`), read at repo `main`. Where the strategy note and the real code differ, the code wins and the gap is named.
 
 ---
 
-> ## Implementation status — Phase-1 (Stage A + B + persist) + Stage D (quality gate)
+> ## Implementation status — Phase-1 (Stage A + B + persist) + Stage C (assembly) + Stage D (quality gate)
 >
 > **Built & validated end-to-end** in the `ProjectData` repo (`silver/` package) on local WSL + Spark local mode + Delta + embedded Derby. The validated `pidtool`/`bppidsys`/`pidsys` reconstruction is **vendored** under `silver/_recon/` (only master data + connectivity — *not* `walk.py`/`validate.py`, keeping Silver use-case-neutral) and re-housed, not re-derived. The Spark job reads `bronze.pid_documents`, picks the adapter from `source_format`, builds the DOM from the `content` bytes via `Doc.from_bytes` (no re-sniffing, no temp files), runs `Pipeline(...).run()` + `stamp_master_data`, and writes `silver_components` / `silver_segments` / `silver_connections` / `silver_equipment`.
 >
@@ -24,7 +24,9 @@
 >
 > **Stage D — BUILT & UNIT-TESTED (2026-09-02).** The quality gate is implemented as a **declarative expectation suite as data** (`silver/quality_suite.py`) evaluated by a **pure, Spark-free core** (`silver/quality.py`, 16 unit tests, all green), wrapped in a Spark job (`silver/quality_job.py`) that writes the **`silver_quality`** punch-list ledger and denormalises a `quality_gate` enum (`clean`/`flagged`/`quarantined`) back onto each object row. Reference-backed checks (unknown fluid/unit, equipment/instrument naming) load their sets and patterns from the project `Reference_Data.xlsx` (`Fluid`/`Unit`/a `Naming` sheet) via `silver/quality_refdata.py` and **skip cleanly** when it is absent — rules-as-data (§7). Gate policy is exactly decision #6: every data-quality expectation flags-and-flows; the **only** hard fails are the two structural invariants (oracle leak §5; unflagged `derived` edge §4), which abort the run *after* recording the breach; a mass-failure of a rare expectation raises a run-level warning, not an abort. The suite ships: segment completeness (fluid/piping-class/diameter/insulation-as-review), unknown-fluid, unknown-unit, equipment-tag & instrument-tag naming-compliance, `seg_tag` anchor-collision, prefix-integrity, orphan-component, plus the two invariants. `silver_quality` is chosen as the deliverable over GX's data-docs (a native suite writing Delta, per decision below), so no heavy new dependency enters the PoC.
 >
-> **Not yet built:** Stage C (OPC assembly) — so the *unmatched-OPC open-boundary* expectation is deferred until an assembled graph exists — and Stage E (object-grain CDC). `connection_id` is element-id-keyed for this single-version build (anchor identity layers on in Stage E without changing the row shape).
+> **Stage C — BUILT & UNIT-TESTED (2026-09-02).** Cross-document assembly is implemented as the medallion shape of `ReconstructedGraph.assemble`: a cheap per-drawing **harvest** (`silver/assemble.py` `harvest_opcs_document` — parse + `pidsys.reconstructed._harvest_opcs`, no `Pipeline.run`, so only the tiny OPC records leave a task, never the 13 MB payload) feeding a plant-level **reduce** (`assemble_opcs` → `bppidsys.offpage.match_pairs`, re-housed: OPCTag for PostProc, GUID for DEXPI). The Spark job (`silver/assemble_job.py`) harvests per drawing, collects the OPC rows, matches in the driver, and writes **idempotently** (clear this stage's rows, then append): one undirected, always-`derived` **`OffPage`** row into `silver_connections` per matched OPC pair (spanning two drawings, `flow_sense=none`), and one **`opc_open_boundary`** flag into `silver_quality` per unmatched OPC — the open-boundary flag the §3.4 table deferred to here, now built (an open boundary is a flag, never an error or dropped row). 6 unit tests (harvest, OPCTag match, DEXPI GUID match, open boundary, mixed) all green.
+>
+> **Not yet built:** Stage E (object-grain CDC). `connection_id` is element-id-keyed for this single-version build (anchor identity layers on in Stage E without changing the row shape).
 
 ---
 
@@ -172,7 +174,7 @@ The gate's **deliverable is the `silver_quality` ledger itself (§4)** — a per
 | **Tag-vs-drawing unit** mismatch | `stamp_master_data` `unit_flagged`; `hierarchy` cross-check; MD §2.1a/§4.2 | cross-column (tag unit vs drawing unit) | flag; retain (dominant unit attributed) |
 | **Multi-unit line** — a Pipeline System decoding to >1 unit | MD §2.1a/§4.2 | grouped expectation per line | flag; attribute to dominant unit |
 | **Unknown / SUP-less unit** | `hierarchy.load_unit_sup`; MD §2.1a/§3.6 | `expect_column_values_to_be_in_set` (Unit / UnitSUP) | flag; SUP resolves to `SUP??` placeholder, not dropped |
-| **Unmatched OPC** | `_stitch_from` `opc_offset`; ALG §5 D5; MD §2.11 | connectivity expectation on the assembled graph | **not a failure** — open boundary, flag (system continues off-set); *deferred to Stage C* |
+| **Unmatched OPC** | `_stitch_from` `opc_offset`; ALG §5 D5; MD §2.11 | connectivity expectation on the assembled graph | **not a failure** — open boundary, flag (system continues off-set); **BUILT in Stage C** as the `opc_open_boundary` flag (§3.3 impl. note) |
 | **Dangling ends / orphan nodes** | reconstructed `und`; MD §4.2 | connectivity expectation on the **reconstructed** graph (never raw) (`orphan_node`) | flag |
 | **Inline position / segment connectivity = DERIVED** | `inline_index`; `Connection.derived`; MD §2.3.1/§2.12/§4.2 | expectation that every derived edge carries `derived=true` (`derived_flagged`) | structural invariant; **fail** only if a Derived edge is unflagged (a pipeline bug, not a data issue) |
 | **Positive pressures / numeric sanity** (strategy's example) | strategy §3.3 | `expect_column_values_to_be_between` | flag |

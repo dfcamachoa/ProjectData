@@ -119,3 +119,18 @@ QUALITY_TABLE = "silver_quality"
 
 # columns of QUALITY_STRUCT in declared order (drives the pure core -> Row build)
 QUALITY_COLUMNS = [f.name for f in QUALITY_STRUCT.fields]
+
+# --- Stage C: harvested OPC record (silver_spec §3.3) ---------------------- #
+# One placed off-page connector per row, in a format-independent shape the
+# matcher reads (OPCTag for PostProc, GUID for DEXPI), plus Bronze lineage.
+OPC_STRUCT = StructType([
+    StructField("eid", StringType()),          # OPC element id (the stitch endpoint)
+    StructField("home", StringType()),         # this sheet's DrawingNumber (PostProc)
+    StructField("paired", StringType()),       # PairedDrawingNumber back-reference
+    StructField("opctag", StringType()),       # the cross-sheet key (PostProc)
+    StructField("guid_self", StringType()),    # DEXPI: this OPC's GUID
+    StructField("guid_mate", StringType()),    # DEXPI: SP_pairedWithID
+    *_LINEAGE,
+])
+
+OPC_COLUMNS = [f.name for f in OPC_STRUCT.fields]

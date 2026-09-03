@@ -57,6 +57,30 @@ def quality(
     )
 
 
+def assemble(
+    spark: SparkSession,
+    *,
+    bronze_table: str = "bronze.pid_documents",
+    bronze_path: Optional[str] = None,
+    silver_schema: str = "silver",
+) -> dict:
+    """Run Silver **Stage C** (cross-document OPC assembly) in the given notebook
+    session: harvest each drawing's off-page connectors, match them across sheets,
+    and write the ``OffPage`` edges into ``silver.silver_connections`` plus the
+    ``opc_open_boundary`` flags into ``silver.silver_quality``. Returns the
+    assembly stats (matched pairs / open boundaries). Run AFTER reconstruct().
+
+        from silver.notebook import assemble
+        print(assemble(spark))
+        spark.table("silver.silver_connections").where("conn_type='OffPage'").show()
+    """
+    from .assemble_job import run_assembly            # lazy import (keeps it light)
+
+    cfg = SilverConfig(bronze_table=bronze_table, bronze_path=bronze_path,
+                       silver_schema=silver_schema)
+    return run_assembly(cfg, spark=spark)
+
+
 def reconstruct(
     spark: SparkSession,
     *,

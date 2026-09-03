@@ -1,10 +1,10 @@
-# Silver layer — Phase-1 (parse + reconstruct + persist) + Stage D (quality gate)
+# Silver layer — Phase-1 + Stage C (assembly) + Stage D (quality gate)
 
 Reads the Bronze table and reconstructs each drawing into four Delta tables:
 `silver_components`, `silver_segments`, `silver_connections`, `silver_equipment`.
-Implements Stage A (parse/shred) + Stage B (topology reconstruction) + **Stage D
-(the Great-Expectations quality gate → `silver_quality`)** of
-`specs/silver_spec.md`. Stages C (assembly) and E (CDC) are specified but not
+Implements Stage A (parse/shred) + Stage B (topology reconstruction) + **Stage C
+(cross-document OPC assembly)** + **Stage D (the Great-Expectations quality gate →
+`silver_quality`)** of `specs/silver_spec.md`. Stage E (CDC) is specified but not
 built in this phase.
 
 ## Layout
@@ -15,9 +15,11 @@ silver/
 ├── schema.py         the four Silver table schemas + UDF return struct + silver_quality (§4)
 ├── reconstruct.py    PURE core: bytes + source_format -> row dicts (Spark-free, testable)
 ├── spark_job.py      Spark job: read Bronze -> UDF -> explode -> write 4 Delta tables (§6.1)
+├── assemble.py       Stage C PURE core: harvest OPCs + match_pairs -> OffPage rows + open boundaries
+├── assemble_job.py   Stage C Spark job: harvest per drawing -> match -> write OffPage + opc_open_boundary
 ├── quality_suite.py  Stage D: the expectation suite AS DATA (rules-as-data, §3.4)
 ├── quality.py        Stage D PURE core: evaluate(tables, suite, refdata) -> ledger + gates
-├── quality_refdata.py Stage D: load fluid/unit sets + naming patterns from Reference_Data.xlsx
+├── quality_refdata.py Stage D: load fluid/unit/insulation sets + naming patterns from Reference_Data.xlsx
 ├── quality_job.py    Stage D Spark job: evaluate -> write silver_quality + quality_gate rollup
 ├── cli.py            python -m silver.cli reconstruct | quality ...
 ├── smoke_local.py    Spark-free smoke test over sample_data (both formats)
@@ -49,6 +51,10 @@ from silver.notebook import reconstruct    # Bronze -> Silver, same session
 print(reconstruct(spark))
 spark.table("silver.silver_segments").show()   # visible immediately
 
+from silver.notebook import assemble       # Stage C: join the P&IDs via OPCs
+print(assemble(spark))                          # -> OffPage edges + open boundaries
+spark.table("silver.silver_connections").where("conn_type='OffPage'").show()
+
 from silver.notebook import quality        # Stage D: the quality gate, same session
 print(quality(spark, refdata_path="Reference_Data.xlsx"))   # -> silver.silver_quality
 spark.table("silver.silver_quality").orderBy("severity").show(40, False)  # the punch list
@@ -63,6 +69,7 @@ warehouse match):
 ```bash
 python -m bronze.cli ingest --source-dir sample_data --table bronze.pid_documents
 python -m silver.cli reconstruct --bronze-table bronze.pid_documents --silver-schema silver
+python -m silver.cli assemble --bronze-table bronze.pid_documents --silver-schema silver
 python -m silver.cli quality --silver-schema silver --refdata Reference_Data.xlsx
 ```
 
@@ -79,6 +86,25 @@ Options: `--bronze-path <delta path>` (read Bronze by path instead of catalog),
 yet), `--size-buckets N` (repartition Bronze by `file_size_bytes` for the big
 sheets, §6.1), `--refdata Reference_Data.xlsx` (tag composition; falls back to
 the built-in preset when absent), `--no-hive` (path-based, no metastore).
+
+## Stage C — cross-document assembly (`OffPage` edges)
+
+Stage B reconstructs each drawing on its own; Stage C joins them into one plant by
+matching **off-page connectors** across sheets — by `OPCTag` for PostProc, by GUID
+for DEXPI (`bppidsys.offpage.match_pairs`, re-housed via `pidsys.reconstructed`).
+It runs as a cheap per-drawing **harvest** (parse + collect each sheet's OPC
+records — never the 13 MB payload) feeding a plant-level **reduce** in the driver,
+then writes:
+
+- one undirected, always-`derived` **`OffPage`** row into `silver_connections`
+  per matched OPC pair (it spans two drawings); and
+- one `opc_open_boundary` flag into `silver_quality` per **unmatched** OPC — an
+  open boundary (the system continues off-sheet), never an error or a dropped row.
+
+Both writes are idempotent (clear this stage's rows, then append), so re-running
+after loading more sheets resolves open boundaries into `OffPage` edges. Run it
+after `reconstruct` and (if you want the open boundaries in the ledger) before or
+after `quality` — they touch disjoint rows.
 
 ## Stage D — the quality gate (`silver_quality`)
 
@@ -113,7 +139,7 @@ core **and** the whole quality gate are testable anywhere:
 ```bash
 python -m silver.smoke_local                          # over sample_data (both formats)
 python -m silver.smoke_local path/to/real_sheet.xml DEXPI   # one file
-pytest tests/test_quality.py                          # 16 pure Stage-D unit tests
+pytest tests/test_quality.py tests/test_assemble.py tests/test_reconstruct_insulation.py
 ```
 
 ## What this build does and doesn't do
@@ -124,8 +150,6 @@ pytest tests/test_quality.py                          # 16 pure Stage-D unit tes
   oracle (`src_turnover`/`src_subsystem`) as **quarantined** segment columns,
   emit reified connections with `derived` + `flow_sense`, and run the **Stage D
   quality gate** → `silver_quality` + the `quality_gate` rollup.
-- **Doesn't yet:** OPC cross-document assembly (Stage C) — so the *unmatched-OPC
-  open-boundary* expectation is deferred until an assembled graph exists — and
-  object-grain CDC (Stage E). `connection_id` is keyed on element ids for this
-  single-version build; the anchor-based identity for CDC (§3.5) layers on in
-  Stage E without changing the row shape.
+- **Doesn't yet:** object-grain CDC (Stage E). `connection_id` is keyed on element
+  ids for this single-version build; the anchor-based identity for CDC (§3.5)
+  layers on in Stage E without changing the row shape.

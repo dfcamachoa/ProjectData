@@ -35,6 +35,14 @@ def main(argv=None) -> int:
     r.add_argument("--no-hive", action="store_true",
                    help="path-based only; do not use the Derby metastore")
 
+    a = sub.add_parser("assemble", help="Stage C — cross-document OPC assembly")
+    a.add_argument("--bronze-table", default="bronze.pid_documents",
+                   help="Bronze catalog table to read (default: bronze.pid_documents)")
+    a.add_argument("--bronze-path", default=None,
+                   help="read Bronze from a Delta path instead of a catalog name")
+    a.add_argument("--silver-schema", default="silver",
+                   help="schema holding the Silver tables (default: silver)")
+
     q = sub.add_parser("quality", help="Stage D — run the quality gate, write silver_quality")
     q.add_argument("--silver-schema", default="silver",
                    help="schema holding the Silver tables (default: silver)")
@@ -62,6 +70,16 @@ def main(argv=None) -> int:
         )
         counts = run(cfg)
         print(json.dumps(counts, indent=2))
+        return 0
+
+    if args.command == "assemble":
+        from .assemble_job import run_assembly
+        cfg = SilverConfig(
+            bronze_table=args.bronze_table,
+            bronze_path=args.bronze_path,
+            silver_schema=args.silver_schema,
+        )
+        print(json.dumps(run_assembly(cfg), indent=2, default=str))
         return 0
 
     if args.command == "quality":
