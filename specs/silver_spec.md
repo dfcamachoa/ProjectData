@@ -3,14 +3,14 @@
 **Data Product:** Automatic Pre-commissioning Systemization based on P&ID interoperability data
 **Layer:** Silver (parse · reconstruct · assemble · quality-gate · CDC) — the second medallion tier
 **Target runtime:** Delta Lake on Apache Spark (PySpark), with per-drawing Python UDFs
-**Status:** Draft v0.1 — **Phase-1 (A+B+persist) + Stage C (assembly) + Stage D (quality gate) IMPLEMENTED & VALIDATED** (see box)
+**Status:** Draft v0.1 — **ALL FIVE SUB-STAGES (A parse · B reconstruct · C assemble · D quality · E CDC) IMPLEMENTED & VALIDATED — Silver complete** (see box)
 **Date:** 2026-08-29 (impl. note 2026-08-31; Stage D 2026-09-02)
 **Companions:** `bronze_layer_spec.md`, `medallion_rdf_ido_strategy_mapping.md` (§2, §3.2–§3.4, §6), `data_specification.md` (§2, §4.2), `algorithm_spec.md` (§3–§5, §11), `systemization_spec.md`, `architecture_note.md` (§2, §2a, §5).
 **Grounding:** every code reference below is to the actual `pidsys` / `pidtool` / `bppidsys` source (`pidsys/master_data.py`, `pidsys/reconstructed.py`, `pidsys/refdata.py`, `pidtool/pipeline.py`, `bppidsys/`), read at repo `main`. Where the strategy note and the real code differ, the code wins and the gap is named.
 
 ---
 
-> ## Implementation status — Phase-1 (Stage A + B + persist) + Stage C (assembly) + Stage D (quality gate)
+> ## Implementation status — Silver COMPLETE (Stage A + B + persist, C assembly, D quality, E CDC)
 >
 > **Built & validated end-to-end** in the `ProjectData` repo (`silver/` package) on local WSL + Spark local mode + Delta + embedded Derby. The validated `pidtool`/`bppidsys`/`pidsys` reconstruction is **vendored** under `silver/_recon/` (only master data + connectivity — *not* `walk.py`/`validate.py`, keeping Silver use-case-neutral) and re-housed, not re-derived. The Spark job reads `bronze.pid_documents`, picks the adapter from `source_format`, builds the DOM from the `content` bytes via `Doc.from_bytes` (no re-sniffing, no temp files), runs `Pipeline(...).run()` + `stamp_master_data`, and writes `silver_components` / `silver_segments` / `silver_connections` / `silver_equipment`.
 >
@@ -26,7 +26,9 @@
 >
 > **Stage C — BUILT & UNIT-TESTED (2026-09-02).** Cross-document assembly is implemented as the medallion shape of `ReconstructedGraph.assemble`: a cheap per-drawing **harvest** (`silver/assemble.py` `harvest_opcs_document` — parse + `pidsys.reconstructed._harvest_opcs`, no `Pipeline.run`, so only the tiny OPC records leave a task, never the 13 MB payload) feeding a plant-level **reduce** (`assemble_opcs` → `bppidsys.offpage.match_pairs`, re-housed: OPCTag for PostProc, GUID for DEXPI). The Spark job (`silver/assemble_job.py`) harvests per drawing, collects the OPC rows, matches in the driver, and writes **idempotently** (clear this stage's rows, then append): one undirected, always-`derived` **`OffPage`** row into `silver_connections` per matched OPC pair (spanning two drawings, `flow_sense=none`), and one **`opc_open_boundary`** flag into `silver_quality` per unmatched OPC — the open-boundary flag the §3.4 table deferred to here, now built (an open boundary is a flag, never an error or dropped row). 6 unit tests (harvest, OPCTag match, DEXPI GUID match, open boundary, mixed) all green.
 >
-> **Not yet built:** Stage E (object-grain CDC). `connection_id` is element-id-keyed for this single-version build (anchor identity layers on in Stage E without changing the row shape).
+> **Stage E — BUILT & UNIT-TESTED (2026-09-02).** Object-grain CDC (the one sub-stage with no PoC predecessor) is implemented in a pure, Spark-free core (`silver/cdc.py`, 10 unit tests) wrapped by `silver/cdc_job.py`. It diffs, **per drawing, the two most recent Bronze versions present in Silver** (ordered by Bronze `ingested_at`, `drawing_revision` carried as a label) and writes **`silver_cdc`** — the New/Modified/Deleted deltas that are Gold's interval open/close events. Identity is the §3.5 **anchor-match** (equipment tag / `(drawing, seg_tag)` / `(segment-anchor, class)` bucket with within-bucket pairing), never the UID; three separated hashes — `anchor_hash` (no UID), `content_hash_eng` (engineering attrs + neighbour **anchor** sets, undirected/directed separately — the Modify + recompute trigger), `content_hash_audit` (adds UID + the quarantined oracle) — keep instance churn and turnover reassignment *visible to audit but inert for engineering CDC* (§5 firewall preserved). The **acceptance test passes**: a delete+recreate of an unchanged object (new UID, same anchor + same `content_hash_eng`) yields **zero** deltas, while a genuine add/remove/modify yields exactly one; a neighbour's delete+recreate does not ripple a false Modify (adjacency keyed on the neighbour's anchor). `enrich_neighbors` builds the neighbour-anchor sets per drawing-version from `silver_connections`. *Recompute-scoping (triggering a reconstruction recompute only for changed drawings + OPC neighbours) is the one §3.5 optimisation left for later — the current build reconstructs all; CDC detection is complete.*
+>
+> **Silver is complete.** All five sub-stages are built, unit-tested (42 pure tests green) and validated on real Project A + B data. `connection_id` is element-id-keyed within a version; cross-version identity is the anchor-match Stage E now implements. **Next layer: Gold** (bi-temporal intervals over `silver_cdc`, then the RDF/IDO projection).
 
 ---
 

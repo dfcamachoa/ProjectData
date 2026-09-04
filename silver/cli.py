@@ -43,6 +43,14 @@ def main(argv=None) -> int:
     a.add_argument("--silver-schema", default="silver",
                    help="schema holding the Silver tables (default: silver)")
 
+    e = sub.add_parser("cdc", help="Stage E — object-grain CDC, write silver_cdc")
+    e.add_argument("--bronze-table", default="bronze.pid_documents",
+                   help="Bronze catalog table to read (default: bronze.pid_documents)")
+    e.add_argument("--bronze-path", default=None,
+                   help="read Bronze from a Delta path instead of a catalog name")
+    e.add_argument("--silver-schema", default="silver",
+                   help="schema holding the Silver tables (default: silver)")
+
     q = sub.add_parser("quality", help="Stage D — run the quality gate, write silver_quality")
     q.add_argument("--silver-schema", default="silver",
                    help="schema holding the Silver tables (default: silver)")
@@ -80,6 +88,16 @@ def main(argv=None) -> int:
             silver_schema=args.silver_schema,
         )
         print(json.dumps(run_assembly(cfg), indent=2, default=str))
+        return 0
+
+    if args.command == "cdc":
+        from .cdc_job import run_cdc
+        cfg = SilverConfig(
+            bronze_table=args.bronze_table,
+            bronze_path=args.bronze_path,
+            silver_schema=args.silver_schema,
+        )
+        print(json.dumps(run_cdc(cfg), indent=2, default=str))
         return 0
 
     if args.command == "quality":

@@ -134,3 +134,31 @@ OPC_STRUCT = StructType([
 ])
 
 OPC_COLUMNS = [f.name for f in OPC_STRUCT.fields]
+
+# --- silver_cdc: Stage E object-grain deltas (silver_spec §3.5) ------------- #
+# One row per changed object across two Bronze versions of a drawing. These are
+# exactly the New/Modified/Deleted interval open/close events Gold consumes.
+CDC_STRUCT = StructType([
+    StructField("cdc_id", StringType(), nullable=False),
+    StructField("grain", StringType()),            # segment|component|equipment
+    StructField("drawing_number", StringType()),
+    StructField("anchor", StringType()),           # the UID-free identity anchor
+    StructField("change_type", StringType()),      # New|Modified|Deleted
+    StructField("old_uid", StringType()),          # audit only (may be re-minted)
+    StructField("new_uid", StringType()),
+    StructField("old_content_hash_eng", StringType()),
+    StructField("new_content_hash_eng", StringType()),
+    StructField("old_content_hash_audit", StringType()),
+    StructField("new_content_hash_audit", StringType()),
+    StructField("old_version", StringType()),       # content_hash of the older Bronze version
+    StructField("new_version", StringType()),
+    StructField("old_revision", StringType()),      # drawing_revision label (e.g. F)
+    StructField("new_revision", StringType()),
+    StructField("detail", StringType()),
+    StructField("project_code", StringType()),
+    StructField("source_format", StringType()),
+    StructField("transaction_ts", TimestampType()),
+])
+
+CDC_TABLE = "silver_cdc"
+CDC_COLUMNS = [f.name for f in CDC_STRUCT.fields]

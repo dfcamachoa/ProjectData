@@ -1,11 +1,11 @@
-# Silver layer — Phase-1 + Stage C (assembly) + Stage D (quality gate)
+# Silver layer — COMPLETE (Stages A · B · C · D · E)
 
 Reads the Bronze table and reconstructs each drawing into four Delta tables:
 `silver_components`, `silver_segments`, `silver_connections`, `silver_equipment`.
-Implements Stage A (parse/shred) + Stage B (topology reconstruction) + **Stage C
-(cross-document OPC assembly)** + **Stage D (the Great-Expectations quality gate →
-`silver_quality`)** of `specs/silver_spec.md`. Stage E (CDC) is specified but not
-built in this phase.
+Implements **all five** sub-stages of `specs/silver_spec.md`: Stage A (parse/shred)
++ Stage B (topology reconstruction) + **Stage C (cross-document OPC assembly)** +
+**Stage D (the Great-Expectations quality gate → `silver_quality`)** + **Stage E
+(object-grain CDC → `silver_cdc`)**.
 
 ## Layout
 
@@ -17,6 +17,8 @@ silver/
 ├── spark_job.py      Spark job: read Bronze -> UDF -> explode -> write 4 Delta tables (§6.1)
 ├── assemble.py       Stage C PURE core: harvest OPCs + match_pairs -> OffPage rows + open boundaries
 ├── assemble_job.py   Stage C Spark job: harvest per drawing -> match -> write OffPage + opc_open_boundary
+├── cdc.py            Stage E PURE core: anchor-match + 3 hashes + diff(old,new,grain) -> deltas
+├── cdc_job.py        Stage E Spark job: diff two latest Bronze versions per drawing -> write silver_cdc
 ├── quality_suite.py  Stage D: the expectation suite AS DATA (rules-as-data, §3.4)
 ├── quality.py        Stage D PURE core: evaluate(tables, suite, refdata) -> ledger + gates
 ├── quality_refdata.py Stage D: load fluid/unit/insulation sets + naming patterns from Reference_Data.xlsx
@@ -58,6 +60,10 @@ spark.table("silver.silver_connections").where("conn_type='OffPage'").show()
 from silver.notebook import quality        # Stage D: the quality gate, same session
 print(quality(spark, refdata_path="Reference_Data.xlsx"))   # -> silver.silver_quality
 spark.table("silver.silver_quality").orderBy("severity").show(40, False)  # the punch list
+
+from silver.notebook import changes        # Stage E: object-grain CDC, same session
+print(changes(spark))                           # -> silver.silver_cdc (needs >=2 versions/drawing)
+spark.table("silver.silver_cdc").show(40, False)
 ```
 
 ### From the shell (CLI)
@@ -71,6 +77,7 @@ python -m bronze.cli ingest --source-dir sample_data --table bronze.pid_document
 python -m silver.cli reconstruct --bronze-table bronze.pid_documents --silver-schema silver
 python -m silver.cli assemble --bronze-table bronze.pid_documents --silver-schema silver
 python -m silver.cli quality --silver-schema silver --refdata Reference_Data.xlsx
+python -m silver.cli cdc --bronze-table bronze.pid_documents --silver-schema silver
 ```
 
 Output is JSON row counts per table. Inspect:
@@ -131,18 +138,33 @@ naming, `seg_tag` anchor-collision (§3.5, scoped by drawing, `info`),
 prefix-integrity (containment), orphan component — plus the two hard-fail
 invariants.
 
+## Stage E — object-grain CDC (`silver_cdc`)
+
+SmartPlant re-exports the whole drawing XML for one symbol move and re-mints an
+element's UID on delete+recreate, so a file hash (or the UID) marks everything
+changed. Stage E separates **engineering change** from **re-export churn** with an
+*anchor-match* identity that survives delete+recreate — equipment tag /
+`(drawing, seg_tag)` / `(segment-anchor, class)` bucket — and three separated
+hashes: `anchor_hash` (matching, no UID), `content_hash_eng` (engineering attrs +
+neighbour **anchor** sets — the Modify trigger), `content_hash_audit` (adds UID +
+the quarantined oracle, so a recreate is *visible* but stays *inert* for
+engineering CDC). It diffs, per drawing, the **two most recent Bronze versions**
+(ordered by `ingested_at`) and writes New/Modified/Deleted deltas to `silver_cdc` —
+Gold's interval open/close events. A delete+recreate of an unchanged object yields
+**zero** deltas. To see deltas a drawing needs **≥2 Bronze versions** (re-ingest a
+revised sheet, re-run reconstruct, then cdc).
+
 ## Test without Spark
 
-`reconstruct.py` and `quality.py` are both Spark-independent, so the algorithmic
-core **and** the whole quality gate are testable anywhere:
+The algorithmic cores are all Spark-independent, so they're testable anywhere:
 
 ```bash
 python -m silver.smoke_local                          # over sample_data (both formats)
 python -m silver.smoke_local path/to/real_sheet.xml DEXPI   # one file
-pytest tests/test_quality.py tests/test_assemble.py tests/test_reconstruct_insulation.py
+pytest tests/test_quality.py tests/test_assemble.py tests/test_cdc.py tests/test_reconstruct_insulation.py   # 42 tests
 ```
 
-## What this build does and doesn't do
+## What this build does (Silver is complete)
 
 - **Does:** pick the adapter from Bronze's `source_format`, build the DOM from
   the `content` bytes (no re-sniffing, no temp files), run the reconstruction,
@@ -150,6 +172,11 @@ pytest tests/test_quality.py tests/test_assemble.py tests/test_reconstruct_insul
   oracle (`src_turnover`/`src_subsystem`) as **quarantined** segment columns,
   emit reified connections with `derived` + `flow_sense`, and run the **Stage D
   quality gate** → `silver_quality` + the `quality_gate` rollup.
-- **Doesn't yet:** object-grain CDC (Stage E). `connection_id` is keyed on element
-  ids for this single-version build; the anchor-based identity for CDC (§3.5)
-  layers on in Stage E without changing the row shape.
+- **Stage C** joins the sheets (OPC `OffPage` edges + open boundaries); **Stage D**
+  gates quality (`silver_quality` + `quality_gate`); **Stage E** captures
+  object-grain change (`silver_cdc`, delete+recreate-safe).
+- **One §3.5 optimisation is left for later:** recompute-scoping (re-running the
+  reconstruction only for changed drawings + their OPC neighbours). The current
+  build reconstructs everything each run; CDC *detection* is complete. `connection_id`
+  is element-id-keyed within a version; cross-version identity is the anchor-match
+  Stage E implements. Next layer: **Gold** (bi-temporal intervals over `silver_cdc`).

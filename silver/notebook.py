@@ -57,6 +57,31 @@ def quality(
     )
 
 
+def changes(
+    spark: SparkSession,
+    *,
+    bronze_table: str = "bronze.pid_documents",
+    bronze_path: Optional[str] = None,
+    silver_schema: str = "silver",
+) -> dict:
+    """Run Silver **Stage E** (object-grain CDC) in the given notebook session:
+    diff, per drawing, the two most recent Bronze versions present in Silver and
+    write the New/Modified/Deleted deltas to ``silver.silver_cdc``. Returns a
+    summary. A delete+recreate of an unchanged object yields no delta (§3.5). To
+    see anything, a drawing must have >= 2 Bronze versions (re-ingest a revised
+    sheet), else the summary reports none.
+
+        from silver.notebook import changes
+        print(changes(spark))
+        spark.table("silver.silver_cdc").show(40, False)
+    """
+    from .cdc_job import run_cdc                    # lazy import
+
+    cfg = SilverConfig(bronze_table=bronze_table, bronze_path=bronze_path,
+                       silver_schema=silver_schema)
+    return run_cdc(cfg, spark=spark)
+
+
 def assemble(
     spark: SparkSession,
     *,
