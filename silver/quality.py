@@ -33,6 +33,8 @@ from .quality_suite import (
     KIND_ORPHAN_NODE,
     KIND_PREFIX_CHAIN,
     KIND_ROUNDTRIP,
+    KIND_UNCOMPOSABLE_TAG,
+    KIND_LINE_ATTR_INCONSISTENT,
     KIND_UNIQUE_ANCHOR,
     SEV_INFO,
     TABLE_ID,
@@ -82,6 +84,33 @@ class QualityResult:
 # --------------------------------------------------------------------------- #
 def _empty(v) -> bool:
     return v is None or (isinstance(v, str) and v.strip() == "")
+
+
+def is_uncomposable_seg_tag(v) -> bool:
+    """True when a ``seg_tag`` is NOT a real composable line tag — a connector /
+    off-page pseudo-tag or a placeholder description rather than the reconstructed
+    ``[dia-]fluid-lineCore[-class][-insul]`` line number (silver_spec §3.5). Real
+    Project-B examples that must flag: ``Conn to process/supply-``, ``Pneumatic-``,
+    ``PG-Utility, Secondary-``. The three symptoms, any of which disqualifies it:
+
+      * empty / absent (can't anchor a line at all);
+      * contains whitespace or a description separator (real tags are code strings);
+      * ends with a separator ``- , /`` (composition left a trailing empty field);
+      * has no numeric line core (no run of >=3 digits: no unit+sequence).
+
+    Exposed as a shared predicate so line-grain CDC can exclude exactly the same
+    rows Stage D quarantines — one rule, two consumers.
+    """
+    s = "" if v is None else str(v).strip()
+    if not s:
+        return True
+    if any(ch.isspace() for ch in s):
+        return True
+    if s.endswith(("-", ",", "/")):
+        return True
+    if re.search(r"\d{3,}", s) is None:
+        return True
+    return False
 
 
 def _passes_where(row: dict, where: Optional[Tuple[str, str, str]]) -> bool:
@@ -170,6 +199,12 @@ def _kind_all_null(exp, rows, refdata, run_ts):
                          lambda r: all(_empty(r.get(c)) for c in cols))
 
 
+def _kind_uncomposable_tag(exp, rows, refdata, run_ts):
+    """Flag rows whose ``exp.column`` is not a composable line tag (§3.5)."""
+    return _eval_rowwise(exp, rows, refdata, run_ts,
+                         lambda r: is_uncomposable_seg_tag(r.get(exp.column)))
+
+
 def _kind_in_set(exp, rows, refdata, run_ts):
     ref = refdata.get_set(exp.ref_set)
     if ref is None:
@@ -251,6 +286,10 @@ def _kind_unique_anchor(exp, rows, refdata, run_ts):
         anchor = row.get(exp.anchor_column)
         if _empty(anchor):
             continue
+        # a seg_tag anchor that isn't a real line (connector/placeholder) is
+        # reported once by `seg_tag_uncomposable`; don't double-report it here
+        if exp.anchor_column == "seg_tag" and is_uncomposable_seg_tag(anchor):
+            continue
         key = tuple(row.get(c) for c in scope) + (str(anchor),)
         groups.setdefault(key, []).append(row)
 
@@ -264,6 +303,42 @@ def _kind_unique_anchor(exp, rows, refdata, run_ts):
                 exp, object_id=str(rep.get(exp.anchor_column)), object_kind=okind,
                 detail=_fmt(exp.detail, rep, n=len(ids)), row=rep, run_ts=run_ts))
             for m in members:                    # gate every colliding object
+                extra_gates.append((exp.table, m.get(id_col)))
+    return hits, evaluated, extra_gates
+
+
+def _kind_line_attr_inconsistent(exp, rows, refdata, run_ts):
+    """Within-line consistency (§3.5): group the PipingNetworkSegment pieces by the
+    CDC line anchor ``(scope_columns, seg_tag)`` — the same grouping line-grain CDC
+    aggregates on — and flag any line whose pieces carry more than one distinct
+    non-null value for a line-defining attribute (``columns``). This is the check
+    that keeps set-reduction in the aggregation from *hiding* a genuine spec break:
+    one ledger row per inconsistent line, every participating piece gated."""
+    id_col = exp.id_column or TABLE_ID.get(exp.table, "object_id")
+    okind = TABLE_KIND.get(exp.table, exp.table)
+    scope = exp.scope_columns or ()
+    groups: Dict[tuple, List[dict]] = {}
+    for row in rows:
+        if not _passes_where(row, exp.where):
+            continue
+        anchor = row.get(exp.anchor_column)
+        if _empty(anchor) or is_uncomposable_seg_tag(anchor):
+            continue                              # un-composable is reported elsewhere
+        key = tuple(row.get(c) for c in scope) + (str(anchor),)
+        groups.setdefault(key, []).append(row)
+
+    hits, evaluated = [], len(rows)
+    extra_gates: List[Tuple[str, str]] = []
+    for members in groups.values():
+        bad = [c for c in exp.columns
+               if len({str(m.get(c)) for m in members if not _empty(m.get(c))}) > 1]
+        if bad:
+            rep = members[0]
+            hits.append(_ledger_row(
+                exp, object_id=str(rep.get(exp.anchor_column)), object_kind=okind,
+                detail=_fmt(exp.detail, rep, attrs=", ".join(bad)),
+                row=rep, run_ts=run_ts))
+            for m in members:
                 extra_gates.append((exp.table, m.get(id_col)))
     return hits, evaluated, extra_gates
 
@@ -366,6 +441,8 @@ def evaluate(
             hits, evaluated = _kind_not_null(exp, rows, refdata, run_ts)
         elif exp.kind == KIND_ALL_NULL:
             hits, evaluated = _kind_all_null(exp, rows, refdata, run_ts)
+        elif exp.kind == KIND_UNCOMPOSABLE_TAG:
+            hits, evaluated = _kind_uncomposable_tag(exp, rows, refdata, run_ts)
         elif exp.kind == KIND_IN_SET:
             hits, evaluated = _kind_in_set(exp, rows, refdata, run_ts)
         elif exp.kind == KIND_MATCH_REGEX:
@@ -376,6 +453,9 @@ def evaluate(
             hits, evaluated = _kind_roundtrip(exp, rows, refdata, run_ts)
         elif exp.kind == KIND_UNIQUE_ANCHOR:
             hits, evaluated, extra_gates = _kind_unique_anchor(exp, rows, refdata, run_ts)
+        elif exp.kind == KIND_LINE_ATTR_INCONSISTENT:
+            hits, evaluated, extra_gates = _kind_line_attr_inconsistent(
+                exp, rows, refdata, run_ts)
         elif exp.kind == KIND_ORPHAN_NODE:
             hits, evaluated = _kind_orphan_node(exp, comp_rows, conn_rows, run_ts)
         elif exp.kind == KIND_DERIVED_FLAGGED:

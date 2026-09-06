@@ -9,6 +9,7 @@ the oracle firewall (turnover change is audit-visible but inert for eng CDC).
 from __future__ import annotations
 
 from silver.cdc import (
+    aggregate_lines,
     anchor_key,
     content_hash_audit,
     content_hash_eng,
@@ -133,3 +134,74 @@ def test_equipment_matches_on_tag_across_recreate():
                     nozzle_tags=["N1", "N2"], neighbor_anchors=[],
                     flow_neighbor_anchors=[], drawing_number="D1", version="v2")
     assert diff([eq("E-OLD")], [eq("E-NEW")], "equipment") == []
+
+
+# --- LINE grain (silver_spec §3.5): a line is drawn as many pieces ----------
+# real composable tags carry a >=3-digit line core (unit+sequence); tags without
+# one are un-composable and never become versioned lines.
+
+def test_line_anchor_is_drawing_plus_seg_tag():
+    lines = aggregate_lines([seg("SG1", seg_tag="2-PG-1001")], [], [])
+    assert anchor_key(lines[0], "line") == ("LINE", "D1", "2-PG-1001")
+
+
+def test_aggregate_collapses_pieces_into_one_line():
+    # one line drawn as three PipingNetworkSegment pieces -> ONE line object
+    pieces = [seg("A", seg_tag="2-PG-1001"), seg("B", seg_tag="2-PG-1001"),
+              seg("C", seg_tag="2-PG-1001")]
+    lines = aggregate_lines(pieces, [], [])
+    assert len(lines) == 1
+    assert lines[0]["piece_uids"] == ["A", "B", "C"]
+    assert lines[0]["fluid_set"] == ["PG"]        # uniform attr collapses to one value
+
+
+def test_uncomposable_seg_tag_is_excluded_from_lines():
+    # a connector / placeholder tag never becomes a versioned line
+    lines = aggregate_lines([seg("SG1", seg_tag="2-PG-1001"),
+                             seg("X", seg_tag="-")], [], [])
+    assert [l["seg_tag"] for l in lines] == ["2-PG-1001"]
+
+
+def test_pure_resplit_of_a_line_yields_zero_deltas():
+    # THE line-grain acceptance test: same line, redrawn as a different number of
+    # pieces with every piece UID re-minted, no engineering change -> ZERO deltas
+    rev_c = aggregate_lines([seg("S1", seg_tag="2-PG-1001")], [], [])   # 1 piece
+    rev_d = aggregate_lines([seg("S2a", seg_tag="2-PG-1001"),
+                             seg("S2b", seg_tag="2-PG-1001")], [], [])  # re-split into 2
+    assert rev_c[0]["piece_uids"] != rev_d[0]["piece_uids"]      # UIDs really churned
+    assert diff(rev_c, rev_d, "line") == []
+
+
+def test_line_attribute_change_is_one_modified():
+    rev_c = aggregate_lines([seg("S1", seg_tag="2-PG-1001", insul_type=None)], [], [])
+    rev_d = aggregate_lines([seg("S2", seg_tag="2-PG-1001",
+                                  insul_type="CS", insul_thick="50")], [], [])
+    d = diff(rev_c, rev_d, "line")
+    assert summarize(d) == {"New": 0, "Modified": 1, "Deleted": 0, "total": 1}
+    assert "insul_type" in d[0]["detail"]
+
+
+def test_within_line_inconsistency_is_surfaced_not_averaged():
+    # two pieces of one line disagree on materials class — a genuine spec break
+    pieces = [seg("P1", seg_tag="2-PG-1001", piping_materials_class="D341H"),
+              seg("P2", seg_tag="2-PG-1001", piping_materials_class="B2B")]
+    lines = aggregate_lines(pieces, [], [])
+    assert lines[0]["piping_materials_class_set"] == ["B2B", "D341H"]
+    assert lines[0]["inconsistent"] == ["piping_materials_class"]
+    d = diff(aggregate_lines([seg("S0", seg_tag="2-PG-1001")], [], []), lines, "line")
+    assert "INCONSISTENT within line: piping_materials_class" in d[0]["detail"]
+
+
+def test_line_routing_change_is_a_modify():
+    # neighbour-LINE set is part of the eng signature: a re-route is a change
+    def build(comp_uid):
+        segs = [seg("SA", seg_tag="2-PG-1001"), seg("SB", seg_tag="4-BFW-9002")]
+        comps = [comp(comp_uid, segment_id="SA"), comp(comp_uid + "b", segment_id="SB")]
+        conns = [{"from_id": comp_uid, "to_id": comp_uid + "b", "flow_sense": "forward"}]
+        return aggregate_lines(segs, comps, conns)
+    connected = build("C1")                    # the two lines are wired together
+    isolated = aggregate_lines([seg("SA", seg_tag="2-PG-1001")], [], [])  # PG-1001 alone
+    line_connected = [l for l in connected if l["seg_tag"] == "2-PG-1001"]
+    assert line_connected[0]["neighbour_lines"] == ["4-BFW-9002"]
+    d = diff(isolated, line_connected, "line")
+    assert summarize(d)["Modified"] == 1

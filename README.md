@@ -62,15 +62,10 @@ is testable and reusable without PySpark. The Spark job imports are lazy, so
 
 ## Format-detection ladder (§4)
 
-Both DEXPI and PostProc are exported by SmartPlant P&ID with
-`OriginatingSystem="SPPID"`, so **`OriginatingSystem` is not a format signal** — it is
-captured only as lineage. The discriminator is `PlantInformation/@Application`:
-
-1. **`APPLICATION`** — `PlantInformation/@Application` contains `Dexpi` (DEXPI exports
-   carry `Application="Dexpi"`, `ApplicationVersion="1.3.1"`) → `DEXPI`.
-2. **`SEGMENT_TAGNAME`** — else a `PipingNetworkSegment` carrying a `TagName` →
-   `POSTPROC` (PostProc has no `Application`); segments present but untagged → `DEXPI`.
-   Mirrors `reconstructed._adapter_for`.
+1. **`ORIGINATING_SYSTEM`** — `OriginatingSystem` contains an `SPPID` marker →
+   `POSTPROC`; any other originator → `DEXPI`. (Cheap, header-only, preferred.)
+2. **`SEGMENT_TAGNAME`** — no usable originator: a `PipingNetworkSegment` carrying a
+   `TagName` → `POSTPROC`, else `DEXPI`. Mirrors `reconstructed._adapter_for`.
 3. **`UNKNOWN`** — neither resolves; the file is still landed.
 
 Bronze **records** the classification; Silver **acts** on it (§4).
@@ -144,10 +139,14 @@ spark-submit --packages io.delta:delta-spark_2.12:3.2.0 \
 
 ## Validation status
 
-- **Pure core**: 12/12 unit tests pass (`run_tests.py`) — DEXPI EPC-doc-number +
-  `RevRow` revision history, PostProc `Drawing/@Revision` + matching revision-Label
-  date, `project_code` derivation, the segment-tagname fallback, namespaced XML,
-  malformed-tolerance, empty/non-XML input, and the self-describing hash.
+- **Pure core**: 70/70 unit tests pass (`run_tests.py`, no Spark / no pytest needed) —
+  Bronze header parsing (DEXPI EPC-doc-number + `RevRow` revision history, PostProc
+  `Drawing/@Revision` + matching revision-Label date, `project_code` derivation, the
+  segment-tagname fallback, namespaced XML, malformed-tolerance, empty/non-XML input,
+  the self-describing hash), Stage-C OPC assembly, the Stage-D quality suite (including
+  un-composable seg_tag and within-line inconsistency), and Stage-E CDC — object-grain
+  **and line-grain** (a pure re-split of a line yields zero deltas; a real
+  change / re-route / within-line inconsistency yields exactly one).
 - **Spark job**: all modules byte-compile; run `smoke_local.py` in a Spark+Delta
   environment (verified working on WSL Ubuntu) for the end-to-end + idempotency check.
 

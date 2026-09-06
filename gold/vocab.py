@@ -1,0 +1,108 @@
+"""Vocabulary / namespace constants for the Gold RDF projection.
+
+[medallion_rdf_ido_strategy_mapping.md §5, §9 risk #4] IDO (ISO 23726-3) is a
+foundational upper ontology; it ships no `validFrom`/`validTo`, and it ships no
+`FunctionalObject`/`Valve`/`GateValve` domain classes either. Both must be
+project-defined or resolved to a domain reference-data library aligned to IDO
+(the POSC Caesar RDL / ISO 15926-4 lineage the sibling IDO prototype already
+reaches). This module names that boundary explicitly instead of quietly
+asserting `ido:` terms that do not exist:
+
+  - `PIDSYS`  — this project's own namespace. All predicates and validity
+    timestamps this product invents (flowsTo, derived, validFrom, validTo,
+    srcTurnoverSystem, ...) live here, never under `ido:`.
+  - `IDO`     — the real upper-ontology namespace (ISO/IEC 21838-2 aligned
+    IDO). Referenced ONLY for the handful of foundational classes IDO does
+    ship (a physical object / process / information-content-entity split);
+    never for domain classes.
+  - `RDL`     — placeholder for the domain reference-data library a real
+    deployment resolves component classes into (POSC Caesar RDL URIs, e.g.
+    `http://data.posccaesar.org/rdl/RDS...`). `rdf_mapper.py` subclasses every
+    domain class under an IDO physical-object class *and* records an
+    `rdl_uri` pending-resolution field rather than inventing an RDL URI.
+"""
+from __future__ import annotations
+
+PIDSYS = "https://pidsys.example/ns#"
+IDO = "https://www.omg.org/spec/Commons/IndustrialData/"  # foundational classes only
+RDL = "http://data.posccaesar.org/rdl/"  # pending resolution — see module docstring
+PROV = "http://www.w3.org/ns/prov#"
+XSD = "http://www.w3.org/2001/XMLSchema#"
+
+# --- Foundational IDO alignment (the only IDO terms this project asserts) ---
+IDO_PHYSICAL_OBJECT = IDO + "PhysicalObject"
+IDO_PROCESS = IDO + "Process"
+IDO_INFORMATION_CONTENT_ENTITY = IDO + "InformationContentEntity"
+
+# --- pidsys: classes (subclassed under an IDO foundational class, never bare) ---
+C_DOCUMENT = PIDSYS + "Document"
+C_STARTUP_PACKAGE = PIDSYS + "StartUpPackage"
+C_PROCESS_UNIT = PIDSYS + "ProcessUnit"
+C_PIPELINE_SYSTEM = PIDSYS + "PipelineSystem"
+C_SUBLINE = PIDSYS + "Subline"
+C_PIPING_SEGMENT = PIDSYS + "PipingSegment"
+C_PIPING_COMPONENT = PIDSYS + "PipingComponent"
+C_EQUIPMENT = PIDSYS + "Equipment"
+C_NOZZLE = PIDSYS + "Nozzle"
+C_CONNECTION = PIDSYS + "Connection"
+C_FLUID = PIDSYS + "Fluid"
+C_BOUNDARY_ROLE = PIDSYS + "BoundaryRole"
+C_COMMISSIONING_SYSTEM = PIDSYS + "CommissioningSystem"
+
+# domain component classes are minted on demand as PIDSYS + component_class
+# (e.g. PIDSYS#GateValve) and declared rdfs:subClassOf C_PIPING_COMPONENT,
+# which is itself rdfs:subClassOf IDO_PHYSICAL_OBJECT — see rdf_mapper.py.
+
+
+def component_class_uri(component_class: str) -> str:
+    """Domain class URI for a component class string, e.g. 'GateValve'."""
+    safe = component_class.replace(" ", "_")
+    return PIDSYS + safe
+
+
+# --- pidsys: predicates ---
+P_HAS_PART = PIDSYS + "hasPart"
+P_PART_OF = PIDSYS + "partOf"
+P_HAS_START_UP_PACKAGE = PIDSYS + "hasStartUpPackage"
+P_TAG = PIDSYS + "tag"
+P_COMPONENT_CLASS = PIDSYS + "componentClass"
+P_FLUID_CODE = PIDSYS + "fluidCode"
+P_CATEGORY = PIDSYS + "category"
+P_SUBCATEGORY = PIDSYS + "subcategory"
+P_IS_CONNECTED_TO = PIDSYS + "isConnectedTo"          # symmetric, undirected
+P_FLOWS_TO = PIDSYS + "flowsTo"                        # directed overlay
+P_FROM_OBJECT = PIDSYS + "fromObject"
+P_TO_OBJECT = PIDSYS + "toObject"
+P_FROM_NODE = PIDSYS + "fromNode"
+P_TO_NODE = PIDSYS + "toNode"
+P_CONN_TYPE = PIDSYS + "connType"
+P_DERIVED = PIDSYS + "derived"                         # boolean, mandatory on every Connection
+P_FLOW_SENSE = PIDSYS + "flowSense"                    # none|forward|reverse|both
+P_VALID_FROM = PIDSYS + "validFrom"                    # project predicate, NOT ido:validFrom
+P_VALID_TO = PIDSYS + "validTo"
+P_TX_FROM = PIDSYS + "transactionFrom"
+P_TX_TO = PIDSYS + "transactionTo"
+P_SRC_TURNOVER_SYSTEM = PIDSYS + "srcTurnoverSystem"   # ORACLE — graph:oracle only, see oracle_guard.py
+P_SRC_SUBSYSTEM = PIDSYS + "srcSubsystem"              # ORACLE — graph:oracle only
+P_HAS_BOUNDARY_ROLE = PIDSYS + "hasBoundaryRole"
+P_RDL_URI_PENDING = PIDSYS + "rdlUriPending"           # records the unresolved RDL mapping, see IDO note above
+P_MEMBER = PIDSYS + "member"
+P_BOUNDARY_MEMBER = PIDSYS + "boundaryMember"
+
+# --- prov: predicates (results graph) ---
+P_WAS_DERIVED_FROM = PROV + "wasDerivedFrom"
+P_WAS_GENERATED_BY = PROV + "wasGeneratedBy"
+P_RULE = PIDSYS + "firedRule"
+
+# --- Oracle predicates: the set oracle_guard.py enforces is confined to graph:oracle ---
+ORACLE_PREDICATES = frozenset({P_SRC_TURNOVER_SYSTEM, P_SRC_SUBSYSTEM})
+
+# --- Named graphs [strategy §5] ---
+GRAPH_MASTERDATA = PIDSYS + "graph/masterdata"
+GRAPH_REFDATA = PIDSYS + "graph/refdata"
+GRAPH_ORACLE = PIDSYS + "graph/oracle"       # rule-invisible — see oracle_guard.py
+GRAPH_RESULTS = PIDSYS + "graph/results"
+
+
+def uri(prefix: str, local: str) -> str:
+    return prefix + str(local).replace(" ", "_")

@@ -4,6 +4,7 @@
 /data
 bronze/__pycache__
 silver/__pycache__
+gold/__pycache__
 tests/__pycache__
 silver/_recon/bppidsys/__pycache__
 silver/_recon/pidsys/__pycache__

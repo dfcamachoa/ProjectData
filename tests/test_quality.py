@@ -13,8 +13,9 @@ from silver.quality_suite import Expectation, default_suite
 def _seg(**kw):
     base = dict(
         segment_id=None, fluid="PG", unit="14", diameter='2"',
-        piping_materials_class="1B6AS", insul_type="H", seg_tag="X",
-        subline_tag="X", pns_tag="X", src_turnover="1000", src_subsystem="10",
+        piping_materials_class="1B6AS", insul_type="H",
+        seg_tag='2"-PG-1415101-B242A-H', subline_tag="PG-1415101", pns_tag="PG-14151",
+        src_turnover="1000", src_subsystem="10",
         drawing_number="D1", project_code="215777C", source_format="DEXPI",
     )
     base.update(kw)
@@ -53,7 +54,7 @@ def _flags(res):
 # --- completeness (not_null) ------------------------------------------------
 
 def test_missing_fluid_is_flagged_and_gates_the_segment():
-    segs = [_seg(segment_id="SG1", fluid=None, seg_tag="2-PG-1")]
+    segs = [_seg(segment_id="SG1", fluid=None)]
     res = evaluate(_tables(segments=segs))
     assert "segment_missing_fluid" in _flags(res)
     assert res.gates[("silver_segments", "SG1")] == "flagged"
@@ -89,7 +90,7 @@ def test_insulation_absent_only_when_all_three_blank_and_is_info():
 # --- reference-data-backed checks (in_set / regex) --------------------------
 
 def test_unknown_fluid_flagged_only_when_catalogue_present():
-    segs = [_seg(segment_id="SG1", fluid="ZZ", seg_tag="t")]
+    segs = [_seg(segment_id="SG1", fluid="ZZ")]
     # no catalogue -> skipped
     res = evaluate(_tables(segments=segs), refdata=QualityRefData())
     assert "segment_unknown_fluid" not in _flags(res)
@@ -156,8 +157,8 @@ def test_seg_tag_anchor_collision_flags_once_gates_all():
     # keep prefixes self-consistent so only the anchor-collision check fires
     def coll(sid, tag):
         return _seg(segment_id=sid, seg_tag=tag, subline_tag=tag, pns_tag=tag)
-    segs = [coll("SG1", "2-SV-1"), coll("SG2", "2-SV-1"),
-            coll("SG3", "2-SV-1"), coll("SG9", "unique")]
+    C, U = '2"-SV-3620901-1B6AS-N', '4"-SV-3620999-1B6AS-N'   # composable line tags
+    segs = [coll("SG1", C), coll("SG2", C), coll("SG3", C), coll("SG9", U)]
     res = evaluate(_tables(segments=segs))
     coll = [r for r in res.ledger if r["flag"] == "seg_tag_anchor_collision"]
     assert len(coll) == 1                       # one ledger line per colliding tag
@@ -170,8 +171,9 @@ def test_anchor_collision_is_scoped_by_drawing():
     # the SAME seg_tag on DIFFERENT drawings is the same line drawn on two sheets
     # — NOT a collision, because the CDC anchor is (drawing, seg_tag) (§3.5)
     def s(sid, dwg):
-        return _seg(segment_id=sid, seg_tag="2-SV-1", subline_tag="2-SV-1",
-                    pns_tag="2-SV-1", drawing_number=dwg)
+        t = '2"-SV-3620901-1B6AS-N'
+        return _seg(segment_id=sid, seg_tag=t, subline_tag=t, pns_tag=t,
+                    drawing_number=dwg)
     res = evaluate(_tables(segments=[s("SG1", "D1"), s("SG2", "D2")]))
     assert not any(r["flag"] == "seg_tag_anchor_collision" for r in res.ledger)
     # but two on the SAME drawing still collide
@@ -182,8 +184,10 @@ def test_anchor_collision_is_scoped_by_drawing():
 # --- prefix integrity -------------------------------------------------------
 
 def test_prefix_chain_violation_flagged():
-    segs = [_seg(segment_id="SG1", seg_tag="AAA-1", subline_tag="AAA", pns_tag="AAA"),
-            _seg(segment_id="SG2", seg_tag="XXX-1", subline_tag="YYY", pns_tag="ZZZ")]
+    segs = [_seg(segment_id="SG1", seg_tag='2"-PG-1415101-B242A-H',
+                 subline_tag="PG-1415101", pns_tag="PG-14151"),          # nested
+            _seg(segment_id="SG2", seg_tag='2"-PG-1415102-B242A-H',
+                 subline_tag="XY-9999999", pns_tag="XY-99999")]          # broken
     res = evaluate(_tables(segments=segs))
     bad = [r for r in res.ledger if r["flag"] == "prefix_integrity"]
     assert {r["object_id"] for r in bad} == {"SG2"}
@@ -204,6 +208,86 @@ def test_prefix_chain_still_flags_a_real_identity_mismatch():
                  subline_tag="PG-9999999", pns_tag="PG-99999")]
     res = evaluate(_tables(segments=segs))
     assert any(r["flag"] == "prefix_integrity" for r in res.ledger)
+
+
+# --- un-composable seg_tag (§3.5) -------------------------------------------
+
+def test_uncomposable_predicate_matches_the_real_pseudo_tags():
+    from silver.quality import is_uncomposable_seg_tag
+    for t in ["Conn to process/supply-", "PG-Utility, Secondary-", "Pneumatic-",
+              "", None, "OPC"]:
+        assert is_uncomposable_seg_tag(t) is True, t
+    for t in ['36"-PG-1417205-D24P1HD-H', '2"-SC-2203801-F242S-W',
+              "SM-1404001-F242S-H", "PG-1415101"]:
+        assert is_uncomposable_seg_tag(t) is False, t
+
+
+def test_uncomposable_seg_tag_is_quarantined_from_cdc():
+    segs = [_seg(segment_id="SG1", seg_tag="Conn to process/supply-",
+                 subline_tag=None, pns_tag=None)]
+    res = evaluate(_tables(segments=segs))
+    assert "seg_tag_uncomposable" in _flags(res)
+    assert res.gates[("silver_segments", "SG1")] == "quarantined"
+
+
+def test_real_line_tag_is_not_uncomposable():
+    res = evaluate(_tables(segments=[_seg(segment_id="SG1")]))
+    assert "seg_tag_uncomposable" not in _flags(res)
+
+
+def test_uncomposable_tag_is_not_double_reported_as_anchor_collision():
+    # several segments sharing a connector pseudo-tag -> uncomposable, NOT collision
+    segs = [_seg(segment_id=f"SG{i}", seg_tag="Conn to process/supply-",
+                 subline_tag=None, pns_tag=None) for i in range(4)]
+    res = evaluate(_tables(segments=segs))
+    assert "seg_tag_uncomposable" in _flags(res)
+    assert "seg_tag_anchor_collision" not in _flags(res)
+
+
+# --- within-line attribute consistency (§3.5) -------------------------------
+
+def _line(sid, tag, **kw):
+    # a self-consistent piece of one line; override an attr to break consistency
+    return _seg(segment_id=sid, seg_tag=tag, subline_tag=tag, pns_tag=tag, **kw)
+
+
+def test_consistent_line_pieces_raise_no_inconsistency():
+    tag = '2"-PG-1415101-B242A-H'
+    segs = [_line("SG1", tag), _line("SG2", tag), _line("SG3", tag)]
+    res = evaluate(_tables(segments=segs))
+    assert "line_attr_inconsistent" not in _flags(res)
+
+
+def test_line_pieces_disagreeing_on_class_is_flagged_and_gated():
+    tag = '2"-PG-1415101-B242A-H'
+    segs = [_line("SG1", tag, piping_materials_class="1B6AS"),
+            _line("SG2", tag, piping_materials_class="B2B"),   # spec break
+            _line("SG3", tag, piping_materials_class="1B6AS")]
+    res = evaluate(_tables(segments=segs))
+    bad = [r for r in res.ledger if r["flag"] == "line_attr_inconsistent"]
+    assert len(bad) == 1                                # one row per inconsistent line
+    assert "piping_materials_class" in bad[0]["detail"]
+    for sid in ("SG1", "SG2", "SG3"):                   # every piece quarantined
+        assert res.gates[("silver_segments", sid)] == "quarantined"
+
+
+def test_line_inconsistency_scoped_by_drawing():
+    # the same tag on two drawings is two different lines — no inconsistency
+    tag = '2"-PG-1415101-B242A-H'
+    segs = [_line("SG1", tag, drawing_number="D1", diameter='2"'),
+            _line("SG2", tag, drawing_number="D2", diameter='4"')]
+    res = evaluate(_tables(segments=segs))
+    assert "line_attr_inconsistent" not in _flags(res)
+
+
+def test_uncomposable_line_not_checked_for_inconsistency():
+    # pseudo-tags are quarantined by seg_tag_uncomposable, not double-reported here
+    segs = [_seg(segment_id="SG1", seg_tag="Pneumatic-", subline_tag=None,
+                 pns_tag=None, diameter='2"'),
+            _seg(segment_id="SG2", seg_tag="Pneumatic-", subline_tag=None,
+                 pns_tag=None, diameter='4"')]
+    res = evaluate(_tables(segments=segs))
+    assert "line_attr_inconsistent" not in _flags(res)
 
 
 # --- orphan node on the reconstructed graph ---------------------------------
@@ -245,7 +329,10 @@ def test_oracle_on_segments_is_fine():
 # --- run-level mass-failure warning -----------------------------------------
 
 def test_mass_failure_raises_run_warning_but_still_produces_result():
-    segs = [_seg(segment_id=f"SG{i}", fluid=None, seg_tag=f"t{i}") for i in range(30)]
+    segs = [_seg(segment_id=f"SG{i}", fluid=None,
+                 seg_tag=f'2"-PG-1415{i:03d}-B242A-H',
+                 subline_tag=f"PG-1415{i:03d}", pns_tag=f"PG-1415{i:03d}")
+            for i in range(30)]
     res = evaluate(_tables(segments=segs))
     assert res.warnings
     assert any("segment_missing_fluid" in w for w in res.warnings)
@@ -281,7 +368,7 @@ def test_gate_rollup_takes_the_max_severity():
 # --- default suite smoke ----------------------------------------------------
 
 def test_default_suite_runs_clean_on_healthy_data():
-    segs = [_seg(segment_id="SG1", seg_tag="AAA-1", subline_tag="AAA", pns_tag="AAA")]
+    segs = [_seg(segment_id="SG1")]              # default is a composable, nested tag
     comps = [_comp(component_id="C1")]
     conns = [_conn(connection_id="X", from_id="C1", to_id="C1")]
     res = evaluate(_tables(segments=segs, components=comps, connections=conns))

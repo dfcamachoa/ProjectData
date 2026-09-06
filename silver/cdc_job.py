@@ -128,20 +128,24 @@ def run_cdc(cfg: SilverConfig, spark: Optional[SparkSession] = None) -> dict:
                     and r.get("drawing_number") == dwg]
 
         # --- 3) per drawing, enrich each version and diff each grain ----------
+        # The piping topology is versioned at LINE grain, not at the physical
+        # PipingNetworkSegment: one line is drawn as many pieces whose UIDs and
+        # split points churn between revisions (silver_spec §3.5). `aggregate_lines`
+        # collapses the pieces of `(drawing, seg_tag)` into one line object so a pure
+        # re-split is inert; components and equipment keep their own grain.
         deltas: List[dict] = []
         for dwg, p in pairs.items():
+            side: Dict[str, dict] = {}
             for tag, ch in (("old", p["old"]), ("new", p["new"])):
                 s = [_obj_seg(r, rev_of.get(ch)) for r in bucket(segs, ch, dwg)]
                 c = [_obj_cmp(r, rev_of.get(ch)) for r in bucket(comps, ch, dwg)]
                 e = [_obj_eq(r, rev_of.get(ch)) for r in bucket(equips, ch, dwg)]
                 cn = bucket(conns, ch, dwg)
-                cdc.enrich_neighbors(s, c, e, cn)
-                if tag == "old":
-                    old = {"segment": s, "component": c, "equipment": e}
-                else:
-                    new = {"segment": s, "component": c, "equipment": e}
-            for grain in ("segment", "component", "equipment"):
-                deltas.extend(cdc.diff(old[grain], new[grain], grain))
+                cdc.enrich_neighbors(s, c, e, cn)      # component/equipment neighbours
+                side[tag] = {"line": cdc.aggregate_lines(s, c, cn),
+                             "component": c, "equipment": e}
+            for grain in ("line", "component", "equipment"):
+                deltas.extend(cdc.diff(side["old"][grain], side["new"][grain], grain))
 
         # --- 4) write silver_cdc ---------------------------------------------
         run_ts = _dt.datetime.now()

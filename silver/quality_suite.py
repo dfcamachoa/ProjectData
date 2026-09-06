@@ -43,10 +43,12 @@ SEV_ERROR = "error"
 # expectation kinds understood by the evaluator
 KIND_NOT_NULL = "not_null"            # column must be present/non-empty
 KIND_ALL_NULL = "all_null"           # flag only when ALL `columns` are empty
+KIND_UNCOMPOSABLE_TAG = "uncomposable_tag"   # seg_tag is a connector/placeholder, not a line
 KIND_IN_SET = "in_set"               # column value must be in a reference set
 KIND_MATCH_REGEX = "match_regex"     # column value must match a reference pattern
 KIND_PREFIX_CHAIN = "prefix_chain"   # cols[i] must start-with cols[i+1] (child..parent)
 KIND_UNIQUE_ANCHOR = "unique_anchor"  # anchor_column must map to a single id_column
+KIND_LINE_ATTR_INCONSISTENT = "line_attr_inconsistent"  # pieces of one line disagree on an attr
 KIND_ROUNDTRIP = "roundtrip"         # compose(decode(tag)) == tag (best-effort)
 KIND_ORPHAN_NODE = "orphan_node"     # a component present in zero connections
 KIND_DERIVED_FLAGGED = "derived_flagged"   # INVARIANT: every edge carries derived (bool)
@@ -215,6 +217,18 @@ def default_suite() -> Tuple[Expectation, ...]:
         ),
 
         # --- structural / cross-column data checks ---------------------------
+        # un-composable seg_tag: a connector / off-page pseudo-tag or placeholder
+        # description, not a real line number. QUARANTINE so it's carried but
+        # excluded from line-grain CDC and the anchor-collision report (§3.5).
+        Expectation(
+            id="seg_tag_uncomposable",
+            table="silver_segments", kind=KIND_UNCOMPOSABLE_TAG, column="seg_tag",
+            gate=GATE_QUARANTINE, severity=SEV_WARN,
+            detail="segment {segment_id}: seg_tag '{seg_tag}' is not a composable "
+                   "line tag (a connector/placeholder, not a real line) — quarantined "
+                   "from line-grain CDC; give it a proper line number at source",
+            source="silver_spec §3.5 / §3.4",
+        ),
         Expectation(
             id="seg_tag_anchor_collision",
             table="silver_segments", kind=KIND_UNIQUE_ANCHOR,
@@ -224,6 +238,23 @@ def default_suite() -> Tuple[Expectation, ...]:
                    "{n} distinct segments — the (drawing, seg_tag) CDC anchor needs "
                    "a disambiguator (§3.5); review, not a source defect",
             source="silver_spec §3.5 / §4",
+        ),
+        # Pieces of ONE line (drawing, seg_tag) must agree on the line-defining
+        # attributes. A disagreement is a genuine spec break the line-grain
+        # aggregation would otherwise reduce to a set — surface it here at WARN so
+        # it is visible per-run, and QUARANTINE the pieces so the ambiguous line
+        # is held out of clean Gold until source is fixed (silver_spec §3.4/§3.5).
+        Expectation(
+            id="line_attr_inconsistent",
+            table="silver_segments", kind=KIND_LINE_ATTR_INCONSISTENT,
+            anchor_column="seg_tag", scope_columns=("drawing_number",),
+            columns=("fluid", "unit", "diameter", "piping_materials_class",
+                     "insul_purpose", "insul_type", "insul_thick"),
+            gate=GATE_QUARANTINE, severity=SEV_WARN,
+            detail="on drawing {drawing_number}, line '{seg_tag}' has pieces that "
+                   "disagree on {attrs} — a within-line spec break (a line must carry "
+                   "one value per attribute); fix at source (§3.5)",
+            source="silver_spec §3.5 / §3.4",
         ),
         Expectation(
             id="prefix_integrity",

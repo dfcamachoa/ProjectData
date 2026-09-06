@@ -41,6 +41,14 @@ import json
 from collections import defaultdict
 from typing import Dict, List, Optional
 
+from .quality import is_uncomposable_seg_tag, _empty   # shared rules: one predicate, two consumers
+
+# a line's engineering attributes — reduced across its pieces to distinct-value
+# SETS (lossless, piece-count-independent), so a re-split churns nothing but any
+# real value change — or a within-line inconsistency — is captured (silver_spec §3.5)
+_LINE_ATTR_FIELDS = ("fluid", "unit", "diameter", "piping_materials_class",
+                     "insul_purpose", "insul_type", "insul_thick")
+
 
 def _norm(v) -> str:
     return "" if v is None else str(v)
@@ -51,6 +59,10 @@ def _norm(v) -> str:
 # --------------------------------------------------------------------------- #
 def anchor_key(o: dict, grain: str) -> tuple:
     """The delete+recreate-safe identity anchor (silver_spec §3.5). NO UID."""
+    if grain == "line":
+        # a LINE = (drawing, composed seg_tag); unique by construction, so the
+        # many PipingNetworkSegment pieces of one line collapse to one object
+        return ("LINE", _norm(o.get("drawing_number")), _norm(o.get("seg_tag")))
     if grain == "segment":
         return ("SEG", _norm(o.get("drawing_number")), _norm(o.get("seg_tag")))
     if grain == "equipment":
@@ -74,6 +86,12 @@ _ENG_FIELDS = {
 def eng_signature(o: dict, grain: str) -> dict:
     """The engineering-meaningful projection: typed attrs + one-hop neighbour
     ANCHOR sets (undirected + directed), never UIDs (silver_spec §3.5)."""
+    if grain == "line":
+        # attrs as distinct-value SETS across the pieces (so a re-split is inert,
+        # and a within-line inconsistency is present, not averaged away); plus the
+        # set of neighbour LINE tags (routing) — components are their own grain
+        return {"attrs": {f: sorted(o.get(f + "_set") or []) for f in _LINE_ATTR_FIELDS},
+                "routing": sorted(o.get("neighbour_lines") or [])}
     attrs = [_norm(o.get(f)) for f in _ENG_FIELDS.get(grain, ())]
     if grain == "equipment":
         # nozzle_ids are element UIDs (re-minted on re-export), so hashing them
@@ -103,8 +121,13 @@ def content_hash_audit(o: dict, grain: str) -> str:
     """Audit visibility: adds the UID and the quarantined oracle — a delete+recreate
     or a turnover reassignment shows here but never in `content_hash_eng`."""
     base = eng_signature(o, grain)
-    base["uid"] = _norm(o.get("uid"))
-    base["oracle"] = [_norm(o.get("src_turnover")), _norm(o.get("src_subsystem"))]
+    if grain == "line":
+        base["pieces"] = sorted(o.get("piece_uids") or [])          # the segment UIDs
+        base["oracle"] = [sorted(o.get("src_turnover_set") or []),
+                          sorted(o.get("src_subsystem_set") or [])]
+    else:
+        base["uid"] = _norm(o.get("uid"))
+        base["oracle"] = [_norm(o.get("src_turnover")), _norm(o.get("src_subsystem"))]
     return _sha(base)
 
 
@@ -117,6 +140,12 @@ def _inline(o: dict):
 
 
 def _eng_fields_changed(o: dict, n: dict, grain: str) -> List[str]:
+    if grain == "line":
+        changed = [f for f in _LINE_ATTR_FIELDS
+                   if sorted(o.get(f + "_set") or []) != sorted(n.get(f + "_set") or [])]
+        if sorted(o.get("neighbour_lines") or []) != sorted(n.get("neighbour_lines") or []):
+            changed.append("routing")
+        return changed
     changed = [f for f in _ENG_FIELDS.get(grain, ())
                if _norm(o.get(f)) != _norm(n.get(f))]
     if grain == "equipment" and \
@@ -142,6 +171,12 @@ def _delta(change: str, grain: str, anchor: tuple,
         detail = "added"
     elif change == "Deleted":
         detail = "removed"
+    if grain == "line":                        # surface a within-line inconsistency
+        inc = ref.get("inconsistent") or [
+            f for f in _LINE_ATTR_FIELDS if len(ref.get(f + "_set") or []) > 1]
+        if inc:
+            detail = (detail + " | " if detail else "") + \
+                "INCONSISTENT within line: " + ", ".join(inc)
     return {
         "grain": grain,
         "drawing_number": ref.get("drawing_number"),
@@ -253,6 +288,64 @@ def enrich_neighbors(segments: List[dict], components: List[dict],
                                        if n in anchor_of)
         o["flow_neighbor_anchors"] = sorted(anchor_of[n] for n in flow.get(uid, ())
                                             if n in anchor_of)
+
+
+def aggregate_lines(segments: List[dict], components: List[dict],
+                    connections: List[dict]) -> List[dict]:
+    """Collapse the PipingNetworkSegment pieces of ONE drawing-version into LINE
+    objects keyed on `(drawing, seg_tag)` (silver_spec §3.5). The physical piece is
+    a drawing artifact with no stable identity; the LINE is what engineers version.
+
+    Un-composable seg_tags (connectors / placeholders) are excluded — Stage D
+    quarantines them separately. Each engineering attribute becomes the sorted SET
+    of its distinct non-null values across the pieces (a re-split is inert; a real
+    change or a within-line inconsistency is captured). ``neighbour_lines`` is the
+    set of OTHER lines this line connects to (routing), from the pieces' component
+    connections. ``piece_uids`` and the oracle sets are carried for audit only.
+    """
+    seg_tag_of = {s["uid"]: s.get("seg_tag") for s in segments}
+    comp_line = {}                              # component uid -> its owning line tag
+    for c in components:
+        st = seg_tag_of.get(c.get("segment_id"))
+        if st:
+            comp_line[c["uid"]] = st
+
+    adj: Dict[str, set] = defaultdict(set)      # line-to-line adjacency
+    for e in connections:
+        la, lb = comp_line.get(e.get("from_id")), comp_line.get(e.get("to_id"))
+        if la and lb and la != lb:
+            adj[la].add(lb)
+            adj[lb].add(la)
+
+    lines: Dict[tuple, list] = defaultdict(list)
+    for s in segments:
+        st = s.get("seg_tag")
+        if is_uncomposable_seg_tag(st):
+            continue
+        lines[(s.get("drawing_number"), st)].append(s)
+
+    out: List[dict] = []
+    for (dwg, st), pieces in lines.items():
+        rep = pieces[0]
+        obj = {
+            "uid": f"{dwg}|{st}",               # canonical line id (audit)
+            "drawing_number": dwg, "seg_tag": st,
+            "version": rep.get("version"), "revision": rep.get("revision"),
+            "project_code": rep.get("project_code"),
+            "source_format": rep.get("source_format"),
+            "piece_uids": sorted(p["uid"] for p in pieces if p.get("uid")),
+            "neighbour_lines": sorted(a for a in adj.get(st, ()) if a != st),
+        }
+        for f in _LINE_ATTR_FIELDS:
+            obj[f + "_set"] = sorted({_norm(p.get(f)) for p in pieces
+                                      if not _empty(p.get(f))})
+        obj["src_turnover_set"] = sorted({_norm(p.get("src_turnover")) for p in pieces
+                                          if not _empty(p.get("src_turnover"))})
+        obj["src_subsystem_set"] = sorted({_norm(p.get("src_subsystem")) for p in pieces
+                                           if not _empty(p.get("src_subsystem"))})
+        obj["inconsistent"] = [f for f in _LINE_ATTR_FIELDS if len(obj[f + "_set"]) > 1]
+        out.append(obj)
+    return out
 
 
 def summarize(deltas: List[dict]) -> Dict[str, int]:

@@ -1,0 +1,90 @@
+## classification.rules — Apache Jena generic-rule-syntax counterpart of
+## gold/rules_reference.py. This is the authoritative, portable artifact
+## (medallion_rdf_ido_strategy_mapping.md §6, §10 step 4): the artifact a
+## real Jena/Fuseki deployment loads, one-to-one against the Python reference
+## implementation this PoC actually runs and unit-tests. Diff the two on any
+## change; both must be validated against the same fixtures
+## (tests/test_rules_reference.py) before either is trusted.
+##
+## Scope (medallion §6 hybrid): LOCAL, node-local classification and
+## directional guards only. The global connected-fragment partition
+## (walk.py's fragment discovery, the C1/C2 consumer trace, fragment-merge)
+## is NOT expressed here — SPARQL/Jena forward-chaining is awkward at
+## "transitive closure that must stop at a node with a property"
+## (medallion §6 point 5), and that partition stays in Silver/Python where
+## it is already validated to ~97% source agreement.
+##
+## Reads ONLY graph:refdata and graph:masterdata. NEVER graph:oracle — see
+## gold/oracle_guard.py, which is what makes that a structural invariant
+## instead of a convention here.
+
+@prefix pidsys: <https://pidsys.example/ns#> .
+@prefix rdf:    <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+
+# --- Fluid classification [data_specification.md §3.4] ---------------------
+
+# A fluid with Category "Flare" is self-owning: forms its own flare
+# collection system, never traced to a consumer.
+[flareCategory:
+  (?fluid pidsys:category "Flare")
+  ->
+  (?fluid pidsys:selfOwningClass "flare")
+]
+
+# A fluid with Category "Utility" and a Subcategory containing "Steam" or
+# "Condensate" is self-owning. Jena's builtin regex is the substring test
+# data_specification.md §3.4 specifies (accepts a combined
+# "Steam / Condensate" spelling too).
+[steamCondensateCategory:
+  (?fluid pidsys:category "Utility")
+  (?fluid pidsys:subcategory ?sub)
+  regex(?sub, 'Steam|Condensate')
+  ->
+  (?fluid pidsys:selfOwningClass "steam_condensate")
+]
+
+[processCategory:
+  (?fluid pidsys:category "Process")
+  noValue(?fluid pidsys:selfOwningClass ?any)
+  ->
+  (?fluid pidsys:selfOwningClass "process")
+]
+
+# --- Flare guard [algorithm_spec.md §7.2] -----------------------------------
+# If a fragment component's flow runs INTO a flare-fluid neighbour, and NOT
+# the reverse, the neighbour is a discharge sink, not a consumer signal.
+[flareGuardSkip:
+  (?comp pidsys:isConnectedTo ?nb)
+  (?comp pidsys:partOf ?seg) (?seg pidsys:fluidCode ?fluid)
+  (?nb pidsys:partOf ?nbSeg) (?nbSeg pidsys:fluidCode ?nbFluid)
+  notEqual(?fluid, ?nbFluid)
+  (?nbFluidNode pidsys:fluidCode ?nbFluid) (?nbFluidNode pidsys:selfOwningClass "flare")
+  (?comp pidsys:flowsTo ?nb)
+  noValue(?nb pidsys:flowsTo ?comp)
+  ->
+  (?comp pidsys:skipAsConsumerSignal ?nb)
+]
+
+# --- Directional consumer guard [algorithm_spec.md §7.2a] -------------------
+# Generalises the flare guard: if the NEIGHBOUR's flow runs into the
+# fragment component (and not the reverse), the neighbour is a supply tying
+# in — not a consumer this fragment feeds.
+[directionalConsumerGuardSkip:
+  (?comp pidsys:isConnectedTo ?nb)
+  (?nb pidsys:flowsTo ?comp)
+  noValue(?comp pidsys:flowsTo ?nb)
+  ->
+  (?comp pidsys:skipAsConsumerSignal ?nb)
+]
+
+# --- Relief-device attribution [algorithm_spec.md §7.4a] --------------------
+# A relief device commissions with the side it protects (flow INTO the
+# valve), not the discharge side (flow OUT of the valve).
+[reliefAttribution:
+  (?valve rdf:type ?cls) (?role pidsys:boundaryMember ?cls)
+  regex(?role, 'relief')
+  (?protectedSide pidsys:flowsTo ?valve)
+  noValue(?valve pidsys:flowsTo ?protectedSide)
+  ->
+  (?valve pidsys:protectedBy ?protectedSide)
+]
