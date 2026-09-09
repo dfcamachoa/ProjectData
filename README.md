@@ -1,169 +1,97 @@
-# Bronze Layer — PySpark / Delta Ingestion
+# ProjectData — Automatic Pre-Commissioning Systemization (P&ID)
 
-Runnable implementation of the Bronze ingestion layer for the P&ID
-pre-commissioning systemization data product. It lands raw DEXPI/Proteus (project A)
-and INGR ISO-15926 PostProc/SPPID (project B) exports **as-is**, one immutable row
-per distinct file-version, into an append-only Delta table with the ingestion
-metadata the specs reserve.
+Data product implementing the **Master Data Spec**, **Systemization Spec**, and
+**Algorithm Spec** (`specs/`) for pre-commissioning system-boundary detection from
+DEXPI (project A) and ISO-15926/PostProc (project B) P&ID exports — a
+medallion-architecture PoC (**Bronze → Silver → Gold**) on local Spark/Delta,
+feeding an RDF/IDO semantic layer.
 
-This code implements `bronze_layer_spec.md` (**Draft v0.2**). Section references
-below (§) point into that spec.
+## The three layers
 
-## What it does (and deliberately does not)
+| Layer | What it does | Code | Docs |
+|---|---|---|---|
+| **Bronze** | Lands raw DEXPI/PostProc exports as-is, one immutable row per file-version, with a shallow header read for identity/versioning/routing. | `bronze/` | [`bronze/README.md`](bronze/README.md), [`specs/bronze_spec.md`](specs/bronze_spec.md) |
+| **Silver** | Quality gates, per-format reconstruction (DEXPI/PostProc adapters), object-grain **and** line-grain CDC. | `silver/` | [`silver/README.md`](silver/README.md), [`specs/silver_spec.md`](specs/silver_spec.md) |
+| **Gold** | Bi-temporal Delta tables, RDF/IDO projection, SPARQL surface, a real Fuseki push, an OWL-RL cross-check of the class hierarchy. | `gold/` | [`gold/README.md`](gold/README.md), [`specs/gold_layer_spec.md`](specs/gold_layer_spec.md) |
 
-Bronze does exactly one interpretive act — a **shallow header read** for identity,
-versioning and routing (§1.2, §4). It does **not** parse the network model,
-reconstruct topology, run quality gates, do CDC, or model bi-temporal intervals —
-those are Silver and Gold. Keeping that boundary is the whole point (§1.2).
+Each layer only does its own job — Bronze never parses the network model, Silver
+never touches bi-temporal intervals, Gold never re-derives what Silver already
+decided. `specs/strategy.md` is where that boundary is argued for; the per-layer
+specs are where it's made precise.
 
-Per file it captures: the raw bytes, a **self-describing `sha256:<hex>` version hash**
-(§5.2), file/source lineage, the detected source format (`DEXPI` / `POSTPROC` /
-unknown) and how it was detected, the EPC and client **drawing numbers**, the current
-**revision and its issue date** (the seed for Gold's valid-time axis, §6), the derived
-**`project_code`** with its authority (§3.1), and a `header_parse_ok` flag. It
-**flags, never rejects** (§7): a malformed or partial file still lands.
+## Specs
 
-### v0.2 changes baked in
+Authoritative specs live in `specs/`:
 
-- **Self-describing hash** `sha256:<hex>` (§5.2), no pre-hash normalisation.
-- **`content_text` off by default** — drawings reach ~13 MB, so the derivable UTF-8
-  decode is not stored (decode-on-read instead); a 256 KB size gate applies if turned
-  on (§3.3).
-- **`project_code` derived** from the EPC document number's leading token, with an
-  ingest-run override and a run-level mismatch count in the summary (§3.1).
-- **Revision from the revision-history** — DEXPI `RevRow{N}No/Date` (current = highest
-  N); PostProc `Drawing/@Revision` + the matching revision `Label`'s `TP_RevisionData`;
-  dates stored **verbatim** (§6).
-- **Per-format document mapping** — DEXPI EPC = `OperationCenterDocNo`, client =
-  `DrawingNumber`; PostProc both = `Drawing/@Name` (§3.1).
-- **Embedded Derby metastore** (`enableHiveSupport`) for named `bronze.pid_documents`
-  on local WSL; path-based tables skip it (§8.4).
+- `strategy.md` — the overall medallion + RDF/IDO strategy and why the layer
+  boundaries sit where they do
+- `bronze_spec.md`, `silver_spec.md`, `gold_layer_spec.md` — per-layer design,
+  each with a running, **dated** implementation-status log at the top; read that
+  log before assuming a gap is still open — most of what earlier drafts flagged
+  as future work has a dated "Resolved" entry by now
+- `systemization/data_spec.md`, `systemization/algorithm_spec.md`,
+  `systemization/systemization_spec.md`, `systemization/architecture_note.md`
+- `spark/spark_concepts_bronze.md`
 
-## Layout
+## Environment setup
 
-```
-bronze/
-  config.py         # BronzeConfig + HeaderFieldConfig — all per-project knobs are data
-  header.py         # PURE core: shallow header read, format-detection ladder, hashing (no Spark)
-  schema.py         # Bronze Delta table schema + CREATE TABLE DDL (appendOnly)
-  spark_session.py  # Spark session wired for Delta
-  ingest.py         # the job: binaryFile read -> header UDF -> metadata -> idempotent MERGE
-  cli.py            # `python -m bronze.cli ingest|create-table ...`
-tests/test_header.py # unit tests for the pure core (format detection, malformed, hashing)
-sample_data/        # synthetic DEXPI / PostProc / ambiguous / malformed exports
-smoke_local.py      # real end-to-end Spark+Delta run over sample_data (+ idempotency check)
-run_tests.py        # runs the unit tests without pytest installed
-requirements.txt
-```
+- See `WINDOWS_WSL_SETUP.md` for the local WSL dev environment this PoC targets.
+- `requirements.txt` at the repo root is the **single, shared** dependency list
+  for all three layers: `rdflib`/`owlrl` (Gold's RDF/IDO layer) plus a
+  **deliberately pinned** `pyspark==3.5.1` / `delta-spark==3.2.0` pair (Bronze,
+  Silver, and Gold all share one Spark session builder,
+  `bronze/spark_session.py::get_spark()`). Don't loosen that pin casually — an
+  earlier unpinned `delta-spark` pulled a version requiring a newer `pyspark`
+  than was installed, and threw `NoSuchMethodError`/`NoClassDefFoundError` out
+  of plain `SparkSession` init before Delta even loaded. It turned out to have
+  a second cause layered under it — a corrupted, mixed-version `pyspark/jars/`
+  directory left behind by a botched `pip` upgrade — fixed only by a clean
+  `pip uninstall` + manual jar-directory removal + reinstall, not the pin
+  alone. See `specs/gold_layer_spec.md`'s 2026-09-10 entries for the full,
+  dated account before touching this again.
+- `Reference_Data.xlsx` / `Reference_Data_CFI.xlsx` — Project Reference Data
+  (fluid codes and the like) that the specs deliberately externalise as
+  project-scoped configuration, not code.
 
-The pure core (`header.py`, `config.py`) imports **only the standard library**, so it
-is testable and reusable without PySpark. The Spark job imports are lazy, so
-`import bronze; bronze.parse_header(...)` works with no Spark present.
+## The notebook
 
-## Format-detection ladder (§4)
+`medallion_concepts.ipynb` at the repo root is the single, current walkthrough:
+a real Bronze ingest → real Silver CDC → Gold's real Spark bi-temporal job →
+RDF/IDO projection → SPARQL queries → a real push into a running Fuseki
+instance. It supersedes any older per-layer notebook copies — if an older one
+turns up elsewhere in the tree, it predates the Gold sections and should be
+retired once you've confirmed this one covers everything it did.
 
-1. **`ORIGINATING_SYSTEM`** — `OriginatingSystem` contains an `SPPID` marker →
-   `POSTPROC`; any other originator → `DEXPI`. (Cheap, header-only, preferred.)
-2. **`SEGMENT_TAGNAME`** — no usable originator: a `PipingNetworkSegment` carrying a
-   `TagName` → `POSTPROC`, else `DEXPI`. Mirrors `reconstructed._adapter_for`.
-3. **`UNKNOWN`** — neither resolves; the file is still landed.
+## Running the tests
 
-Bronze **records** the classification; Silver **acts** on it (§4).
-
-## Run it
-
-Install (matched Spark/Delta pair — see `requirements.txt`):
+All three layers' unit tests live together under `tests/`:
 
 ```bash
-pip install -r requirements.txt      # not on Databricks — the runtime provides these
+python -m unittest discover -s tests -v
 ```
 
-Unit tests (pure core, no Spark, no pytest needed):
+or, without a discovery runner:
 
 ```bash
-python run_tests.py                  # or: pytest tests/ -q
+python run_tests.py
 ```
 
-End-to-end local smoke test (needs pyspark + delta-spark + a JDK):
+Bronze's and Silver's pure-core tests need no third-party dependencies. Gold's
+`rdflib`/`owlrl`-backed modules (`test_rdf_mapper.py`, `test_rules_reference.py`,
+`test_gold_job.py`, `test_owl_reasoning.py`, `test_fuseki_bootstrap.py`) need
+`requirements.txt` installed first — until then they fail cleanly with
+`ModuleNotFoundError`, which is expected, not a bug.
 
-```bash
-python smoke_local.py                # ingests sample_data twice, asserts idempotency
-```
+## Status
 
-Ingest a real folder into a **path-based** Delta table (simplest — no catalog
-needed; recommended on standalone/local Spark and WSL):
+Each layer's own README/spec carries the authoritative, current validation
+status — check there rather than here, so numbers never drift out of sync in
+two places:
 
-```bash
-python -m bronze.cli ingest \
-    --source-dir /data/exports/projectA \
-    --table-path ~/lake/bronze/pid_documents
-```
-
-> `--project-code` is **optional** — `project_code` now derives from each file's EPC
-> document number (§3.1), so one run can carry several projects. Pass it only to
-> override; a mismatch between the override and the derived code is reported in the
-> run summary.
-
-…or into a **named managed table**. On standalone/local Spark the built-in
-`spark_catalog` accepts a **one- or two-part** name only (`table` or
-`schema.table`); the job auto-creates the schema for a two-part name:
-
-```bash
-python -m bronze.cli ingest \
-    --source-dir /data/exports/projectB \
-    --table bronze.pid_documents
-```
-
-> **Three-part names** (`catalog.schema.table`) require a multi-catalog backend
-> such as Databricks **Unity Catalog**. On plain Spark they fail with
-> `REQUIRES_SINGLE_PART_NAMESPACE` — use a one/two-part name or `--table-path`.
-
-On a cluster, run via `spark-submit` with the matching Delta package, e.g.:
-
-```bash
-spark-submit --packages io.delta:delta-spark_2.12:3.2.0 \
-    -m bronze.cli ingest --source-dir ... --table ...
-```
-
-## Idempotency & immutability (§5)
-
-- The **`content_hash` (`sha256:<hex>` over raw bytes)** is the version key.
-  Byte-identical re-ingest is a no-op; any byte difference lands as a **new** version
-  row. Stored self-describing so a future algorithm change can't silently break dedup.
-- The write is an **insert-only `MERGE`** on `content_hash` into a table with
-  `delta.appendOnly = true` — unseen versions insert, known bytes are ignored,
-  existing rows are never mutated. Replay any downstream layer from Bronze alone.
-- Whole-file hashing is correct **here** (Bronze versions files). Object-grain change
-  detection to separate engineering change from re-export churn is a **Silver/CDC**
-  concern and is intentionally not done here (§5.3).
-
-## Validation status
-
-- **Pure core**: 70/70 unit tests pass (`run_tests.py`, no Spark / no pytest needed) —
-  Bronze header parsing (DEXPI EPC-doc-number + `RevRow` revision history, PostProc
-  `Drawing/@Revision` + matching revision-Label date, `project_code` derivation, the
-  segment-tagname fallback, namespaced XML, malformed-tolerance, empty/non-XML input,
-  the self-describing hash), Stage-C OPC assembly, the Stage-D quality suite (including
-  un-composable seg_tag and within-line inconsistency), and Stage-E CDC — object-grain
-  **and line-grain** (a pure re-split of a line yields zero deltas; a real
-  change / re-route / within-line inconsistency yields exactly one).
-- **Spark job**: all modules byte-compile; run `smoke_local.py` in a Spark+Delta
-  environment (verified working on WSL Ubuntu) for the end-to-end + idempotency check.
-
-## Confirm at onboarding (the config is data, not code)
-
-Most spec §9 open decisions are now **resolved** and implemented (self-describing
-hash, `content_text` off, `project_code` derivation, revision-history capture, PoC
-Derby metastore). What still needs checking against **real** export files — a config
-edit in `HeaderFieldConfig`, never a code change:
-
-1. **Header element/attribute names.** The confirmed mappings are encoded as defaults
-   (DEXPI `OperationCenterDocNo`, `RevRow{N}No/Date`; PostProc `Drawing/@Name`,
-   `Drawing/@Revision`, `Revision.TP_RevisionData` Labels). The synthetic samples model
-   these shapes but are illustrative — verify the exact names/nesting on your exports
-   and extend the candidate lists if a dialect differs.
-2. **Revision scheme & date format** (token ordering, `DDMMMYY` vs `YYYY/MM/DD`) — Bronze
-   captures verbatim; the *scheme* is consumed downstream by Silver/Gold and belongs in
-   Project Reference Data (spec §6).
-3. **Org hash standard** — sha-256 clears FIPS; swap only if a standard names another
-   (`BronzeConfig.hash_bits`, and the stored prefix updates automatically).
+- Bronze: `bronze/README.md` → "Validation status"
+- Silver: `silver/README.md`
+- Gold: `gold/README.md`, and `specs/gold_layer_spec.md`'s dated
+  implementation-status log — the most detailed and most current of the three,
+  logging every real-environment finding this PoC has hit (the Fuseki
+  Basic-Auth fix, the Spark/Delta jar-mismatch incident, the first real
+  project-scale Fuseki push) with a date and a resolution.

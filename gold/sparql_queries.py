@@ -1,15 +1,17 @@
 """Example SPARQL query surface (medallion §10 step 3: "master data +
-reference data become queryable by SPARQL"), plus a tiny local
-triple-pattern runner so the same questions are answerable against the
-in-memory `Dataset` without a running Fuseki.
+reference data become queryable by SPARQL"), plus two ways to answer them
+without a running Fuseki: `run_sparql` (real SPARQL 1.1 execution, via
+rdflib's own query engine, now that `Dataset` is genuinely `rdflib`-backed
+— see `rdf_model.py`'s docstring) and `run_local_pattern` (a plain
+triple-pattern match, kept as the lighter-weight option when a full SPARQL
+string is overkill for a simple lookup).
 
 The strings in `EXAMPLE_QUERIES` are real SPARQL 1.1, meant to be sent
-verbatim to `fuseki_client.sparql_query` once triples are loaded into
-Fuseki (or to `rdflib.Graph.query` on graduation — see rdf_model.py's
-docstring on why this PoC does not depend on rdflib). `run_local_pattern`
-below is not a SPARQL engine; it demonstrates that the same questions are
-answerable over the Dataset object this package already builds, for
-environments (like this sandbox) where no SPARQL engine is reachable.
+verbatim to `fuseki_client.sparql_query` once triples are loaded into a
+real Fuseki, or to `run_sparql` below against the in-memory `Dataset` —
+both take the identical query text, so a query proven against the
+in-memory graph via `run_sparql` needs no rewriting when it later moves to
+a real Fuseki deployment.
 """
 from __future__ import annotations
 
@@ -17,6 +19,17 @@ from typing import Optional
 
 from . import vocab as v
 from .rdf_model import Dataset, Term
+
+
+def run_sparql(ds: Dataset, query: str):
+    """Real SPARQL 1.1 execution against the in-memory Dataset, via
+    rdflib's own query engine — no Fuseki required. Returns rdflib's
+    `Result` object (iterate it for rows; `.vars` for the projected
+    variable names) exactly as `fuseki_client.sparql_query` would return
+    parsed JSON bindings from a live Fuseki, so a caller comparing the two
+    is comparing the same query against two execution engines, not two
+    different query languages."""
+    return ds.rdflib_dataset().query(query)
 
 PREFIXES = f"""
 PREFIX pidsys: <{v.PIDSYS}>

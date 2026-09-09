@@ -21,10 +21,13 @@ class OracleLeakage(Exception):
 
 
 def assert_oracle_confined(ds: Dataset) -> None:
+    # q.p / q.g are real rdflib URIRefs (str subclasses) as of the 2026-09-09
+    # rdflib graduation — compare/format with str(), not the old hand-rolled
+    # term's `.value` attribute, which rdflib's URIRef doesn't have.
     for q in ds:
-        if q.p.value in v.ORACLE_PREDICATES and q.g.value != v.GRAPH_ORACLE:
+        if str(q.p) in v.ORACLE_PREDICATES and str(q.g) != v.GRAPH_ORACLE:
             raise OracleLeakage(
-                f"oracle predicate {q.p.value} asserted in graph {q.g.value} "
+                f"oracle predicate {q.p} asserted in graph {q.g} "
                 f"(subject {q.s}) — must be confined to {v.GRAPH_ORACLE}"
             )
 

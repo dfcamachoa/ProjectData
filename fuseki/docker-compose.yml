@@ -1,0 +1,42 @@
+# Local Fuseki instance for the Gold layer's RDF/IDO projection, mirroring
+# the sibling ido-prototype's own fuseki/docker-compose.yml one-for-one
+# (same image, same "FUSEKI_DATASET_1 auto-creates the dataset on startup"
+# mechanism) — see that project's README.md / CONTINUATION_BRIEF.md §2, and
+# architecture_note.md §5's cross-reference to it. Only the dataset and
+# container names differ, so this package doesn't collide with a
+# simultaneously-running ido-prototype instance on the same machine.
+#
+# Quick start:
+#   cd fuseki && docker compose up -d        # Fuseki on http://localhost:3030
+#   python -m gold.fuseki_bootstrap --fixture   # smoke test: push tests/fixtures.py's scenario
+#
+# Reset (mirrors the sibling prototype's own reset procedure,
+# CONTINUATION_BRIEF.md §9):
+#   cd fuseki && docker compose down -v && docker compose up -d
+services:
+  fuseki:
+    image: stain/jena-fuseki:latest
+    container_name: gold-fuseki
+    ports:
+      - "3030:3030"
+    environment:
+      # Demo only — change (or put behind a real secrets mechanism) for
+      # anything beyond a local prototype. This value is what
+      # gold/fuseki_bootstrap.py's DEFAULT_PASSWORD (and the "admin" user
+      # it authenticates as) must match — a real Fuseki instance rejects
+      # an unauthenticated write with HTTP 401, so if you change this,
+      # also pass fuseki_bootstrap.py --password (or set
+      # $FUSEKI_ADMIN_PASSWORD) to the same value.
+      ADMIN_PASSWORD: "admin"
+      # Create a persistent, writable dataset named "gold" on startup —
+      # matches gold/fuseki_bootstrap.py's DEFAULT_DATASET and
+      # tests/test_fuseki_client.py's request-construction fixtures use a
+      # different, unrelated placeholder name ("pidsys") purely as an
+      # arbitrary string for URL-shape assertions; it has no bearing on
+      # what this compose file or fuseki_bootstrap.py actually push to.
+      FUSEKI_DATASET_1: "gold"
+    volumes:
+      - fuseki-data:/fuseki
+
+volumes:
+  fuseki-data:

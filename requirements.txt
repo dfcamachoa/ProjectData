@@ -1,13 +1,39 @@
-# Bronze ingestion runtime.
-# The pure core (bronze/header.py, bronze/config.py) needs only the stdlib.
-# The Spark job needs these; pin to a Spark/Delta pair that match your cluster.
+# Real dependencies for gold/, as of the 2026-09-09 graduation off the
+# hand-rolled RDF quad store and the illustrative Spark sketch — see
+# gold/__init__.py and gold/rdf_model.py's module docstrings for why these
+# weren't dependencies before (PyPI is not on this sandbox's org egress
+# allowlist; install these in your own environment instead).
 #
-# Spark 3.5.x pairs with delta-spark 3.2.x (Java 8/11/17).
-# On Databricks these are provided by the runtime — do not install there.
-pyspark==3.5.1
-delta-spark==3.2.0
+# rdflib/owlrl aren't pinned to exact versions since none of this is
+# installable in the environment this file was written in to verify a pin
+# against -- any recent release works.
+#
+# pyspark/delta-spark ARE pinned, deliberately, to a known-good pair --
+# 2026-09-10 finding: leaving these two unpinned broke a real install.
+# `pip install -r requirements.txt` left an already-installed pyspark 3.5.1
+# alone (unversioned requirements never trigger an upgrade) but pulled the
+# *newest* delta-spark, which requires pyspark>=3.5.3 -- Delta Lake's Maven
+# artifacts embed Spark-internal API calls (e.g.
+# SqlApiConfHelper$.ALLOW_CREATING_UDT_FROM_STRING, StaticSQLConf) added in
+# later Spark 3.5.x patch releases, so running that jar against an older
+# patch fails at the JVM level with NoSuchMethodError / NoClassDefFoundError
+# -- not a Python-visible ImportError, so `pip check` won't catch it either.
+# See delta-io/delta#3737, delta-io/delta#2127, and the Databricks thread
+# on DBR 16.4 LTS (Spark 3.5.2) vs. Delta 3.3.1 for the same failure mode.
+#
+# If your environment already pins a DIFFERENT pyspark version for
+# bronze/silver, override delta-spark to match it instead of using this
+# pair verbatim -- match by Delta's own compatibility table
+# (https://docs.delta.io/latest/releases.html), which as of this writing
+# maps Spark 3.5.x -> Delta Lake 3.0.x-3.3.x, narrowing further by Spark
+# patch level as above (3.5.1/3.5.2 -> delta-spark<=3.2.0; 3.5.3+ ->
+# delta-spark 3.3.x is fine).
 
-# Dev / test only:
-pytest>=7.0
-pandas>=2.0
-openpyxl
+rdflib>=6.0          # gold/rdf_model.py, rdf_mapper.py, oracle_guard.py, rules_reference.py, sparql_queries.py
+owlrl>=6.0           # gold/owl_reasoning.py -- real OWL-RL/RDFS entailment, cross-checked against the
+                     # hand-walked class-hierarchy closure in that module
+pyspark==3.5.1        # gold/schema.py, gold/spark_job.py -- matches bronze/spark_session.py's own
+                      # "venv Spark 3.5.1" pin; change this AND the delta-spark line below together
+delta-spark==3.2.0    # gold/spark_job.py's Delta writes -- last delta-spark verified against
+                      # pyspark 3.5.1/3.5.2 (3.2.1 has a known Scala-2.12 NoSuchMethodError on this
+                      # pairing; 3.3.x requires pyspark>=3.5.3)

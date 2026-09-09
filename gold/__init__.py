@@ -1,24 +1,29 @@
 """Gold layer prototype package.
 
-Implements, in pure Python (no Spark / no JVM required to run or test):
+Two halves, with different dependency stories:
 
-  - bi-temporal versioning of the Silver object grain (temporal.py)
-  - a dependency-free RDF triple/quad model with named-graph support (rdf_model.py)
-  - the canonical-objects -> RDF/IDO projection (rdf_mapper.py)
-  - the oracle-quarantine structural invariant, enforced at the RDF layer (oracle_guard.py)
-  - the declarative classification / local-directional rules that the strategy
-    assigns to Jena (rules_reference.py), plus the authoritative Jena rule file
-    (jena_rules/classification.rules) they are validated against
-  - an example SPARQL query surface, runnable locally or against a real Fuseki
-    (sparql_queries.py)
-  - a stdlib-only Fuseki loader (fuseki_client.py)
-  - an orchestration sketch (gold_job.py) showing how these compose into the
-    medallion Gold stage
+  - **Pure, zero-dependency, unit-tested in any sandbox:** bi-temporal
+    versioning of the Silver object grain (temporal.py), Stage E `silver_cdc`
+    consumption (silver_cdc.py), the pure Spark-bridge resolution logic
+    (spark_bridge.py), and orchestration config (config.py).
+  - **Real-dependency, as of 2026-09-09:** the RDF/IDO projection
+    (rdf_model.py -- genuinely `rdflib`-backed now, not hand-rolled;
+    rdf_mapper.py; oracle_guard.py; rules_reference.py, validated against
+    `jena_rules/classification.rules`'s one-to-one Jena counterpart;
+    sparql_queries.py, real SPARQL via rdflib or a local pattern match; a
+    first OWL/RDFS entailment cross-check via `owlrl` (owl_reasoning.py) --
+    and the Gold bi-temporal Spark job (schema.py, spark_job.py, which need
+    `pyspark`/`delta-spark`). `fuseki_client.py` stays stdlib-only either
+    way (no `rdflib`/`requests` needed to build or send an HTTP request).
 
-No third-party packages (rdflib, pyspark, delta-spark, owlrl, ...) are
-available in this sandbox (PyPI is not reachable), so the RDF and query
-surfaces are hand-rolled to the minimum needed to prove the design is
-correct and unit-testable. `gold_layer_spec.md` (the companion doc) states
-explicitly where a graduation to rdflib + real Jena/Fuseki plugs in without
-changing the triple shapes this package already produces.
+Through 2026-09-06, `rdflib`/`pyspark`/`delta-spark`/`owlrl` could not be
+installed in the build sandbox (PyPI is not on this org's egress
+allowlist), so the RDF layer was hand-rolled to the minimum needed to prove
+the design, and the Spark jobs were illustrative sketches. The user's own
+local environment carries all four now, so the RDF layer and the Gold Spark
+job are real, runnable code — see `rdf_model.py`, `spark_job.py`, and
+`owl_reasoning.py`'s module docstrings for exactly what changed and why the
+call surfaces were kept stable. Both remain unexecuted IN THIS SANDBOX (the
+same PyPI constraint still applies here); `gold_layer_spec.md` documents
+the graduation and its test-count consequences in full.
 """

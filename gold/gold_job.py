@@ -7,12 +7,33 @@ would call once per run, mirroring how Silver's Stage C/D jobs are written
 (silver_layer_spec.md §3.3, §3.4: driver-side over the collected tables —
 "right for the PoC's tens-to-low-hundreds of sheets").
 
-This module is deliberately Spark-free and unit-tested as such
-(tests/test_gold_job.py) — the same "pure, Spark-free core wrapped in a thin
-Spark job" split Silver's quality/assemble stages already use. The Spark
-wrapper below is a sketch (illustrative, not exercised — no Spark/Delta is
-installed in this sandbox), exactly as bronze_layer_spec.md §8.2 and
-silver_layer_spec.md §6 present their own Spark sketches.
+This module is Spark-free, but as of 2026-09-09 it is no longer
+dependency-free: `build_rdf_dataset` calls into `rdf_mapper.py`, which
+builds on `rdf_model.py`'s now-real `rdflib`-backed `Dataset` (see that
+module's docstring for why). `build_bitemporal_tables_from_cdc` /
+`build_bitemporal_tables` stay pure — they only touch `temporal.py` /
+`silver_cdc.py`, neither of which import `rdf_model`. `tests/test_gold_job.py`
+needs `rdflib` installed to run as a result; the same "pure, Spark-free
+core wrapped in a thin Spark job" split Silver's quality/assemble stages
+use still holds, it's just that "pure" here means "no Spark", not
+"no dependencies at all" anymore for the RDF half.
+
+The Spark wrapper is no longer a sketch: `gold/spark_job.py::run_gold` is a
+real, runnable job — `gold/config.py::GoldConfig` for what varies,
+`gold/spark_bridge.py` for the pure dict-in/dict-out resolution logic (its
+own unit-tested module), `gold/schema.py` for the Delta table shapes — built
+2026-09-06 to mirror `bronze/ingest.py` / `silver/cdc_job.py` line for line,
+per the user's own environment: Bronze and Silver already run on real Spark
+there, and Gold now follows the identical `get_spark()` / `.collect()` /
+`.write.format("delta")` discipline instead of the pandas-based notebook
+glue (`append_gold_cells.py`'s Bridge 1/2) an earlier prototype used. It is
+untested AS A SPARK JOB in this sandbox (no pyspark/Delta installed here,
+so `gold/schema.py` and `gold/spark_job.py` cannot even import — confirmed
+they fail with a plain `ModuleNotFoundError`, not a broken import chain,
+and `gold/__init__.py` does not import them eagerly, so the rest of this
+package and its test suite are unaffected either way); it should be
+exercised in the user's own Spark environment before being trusted as
+Bronze/Silver's real jobs already are there.
 """
 from __future__ import annotations
 
@@ -76,7 +97,7 @@ def build_bitemporal_tables_from_cdc(
     Uses the *tolerant* application (`apply_silver_cdc_events_tolerant`), not
     the strict one: a real Stage E feed's `anchor` is a bucket key for
     components (silver_layer_spec.md §3.5 — multiple same-class siblings on
-    one segment can share it, the same non-uniqueness §3f already documents
+    one line can share it, the same non-uniqueness §3f already documents
     for `seg_tag`), so one batch legitimately CAN carry two simultaneous
     events for one anchor. Returns `(bitemporal_tables, anomalies)` — the
     second element is empty in the common case and, when not, is this run's
@@ -134,47 +155,30 @@ def _valid_from_for_kind(kind: str, rows_by_id: dict, drawing_lineage: dict) -> 
 
 
 # --------------------------------------------------------------------------
-# Spark wrapper sketch (illustrative — not exercised in this sandbox; no
-# Spark/Delta available here). Mirrors bronze_layer_spec.md §8.2 /
-# silver_layer_spec.md §6's own sketches.
+# The real Spark wrapper for the bi-temporal side of Gold (this module's
+# build_rdf_dataset / build_bitemporal_tables_from_cdc above) now lives in
+# gold/spark_job.py::run_gold — see that module's docstring for the exact
+# read/apply/write sequence, and gold/config.py::GoldConfig for what varies
+# between environments. Usage from a notebook or driver script, once pyspark
+# is available (it is not in this sandbox):
+#
+#     from gold.config import GoldConfig
+#     from gold.spark_job import run_gold
+#     summary = run_gold(GoldConfig(bronze_table="bronze.pid_documents",
+#                                    silver_schema="silver", gold_schema="gold"))
+#
+# `run_gold` reads Bronze (for drawing_revision_date), the current
+# silver_cdc batch plus whichever per-grain Silver tables that batch
+# touches, and Gold's OWN previous gold_objects table (its accumulated
+# bi-temporal history — silver_cdc itself is overwritten each Silver run,
+# not accumulated), then writes gold_objects (full rewrite — a lossless
+# re-serialization of every row-version, open and closed) and, when this
+# run produced any, gold_anomalies (appended).
+#
+# The RDF/IDO projection (build_rdf_dataset) and the Fuseki push are a
+# separate concern from the bi-temporal Delta tables above and do not yet
+# have their own Spark wrapper — pushing named graphs to Fuseki or writing
+# N-Quads to object storage is orchestration a caller adds around
+# build_rdf_dataset's already-real, already-tested output, following the
+# same "Spark owns I/O, Python owns the algorithm" split as run_gold.
 # --------------------------------------------------------------------------
-SPARK_SKETCH = '''
-# gold_job_spark.py — driver-side orchestration, Spark used for I/O only
-# (reading Silver Delta tables, writing Gold Delta tables + Turtle/N-Quads
-# to object storage), never for the RDF mapping or rule logic itself —
-# same "Spark owns orchestration and persistence, Python owns the algorithm"
-# discipline as Bronze/Silver (medallion §2, §6).
-
-def run(spark, silver_db="silver", gold_db="gold", fuseki_cfg=None):
-    components = spark.table(f"{silver_db}.silver_components").toPandas().to_dict("records")
-    segments   = spark.table(f"{silver_db}.silver_segments").toPandas().to_dict("records")
-    equipment  = spark.table(f"{silver_db}.silver_equipment").toPandas().to_dict("records")
-    connections = spark.table(f"{silver_db}.silver_connections").toPandas().to_dict("records")
-    fluid_catalogue = load_reference_sheet("Fluid")
-    boundary_rows = load_reference_sheet("Boundary")
-    drawing_lineage = load_bronze_lineage(spark)
-
-    inputs = GoldInputs(components, segments, equipment, connections,
-                         fluid_catalogue, boundary_rows, drawing_lineage)
-
-    ds = build_rdf_dataset(inputs)                       # driver-side; dataset sizes are
-                                                            # tens-to-low-hundreds of sheets (PoC scale)
-
-    # Bi-temporal versioning now consumes Silver Stage E's silver_cdc table
-    # directly (silver_cdc.py) — the primary path, not the snapshot-diff
-    # fallback (build_bitemporal_tables), now that Stage E is built.
-    cdc_events = load_silver_cdc_events(spark, silver_db)  # -> list[SilverCdcEvent]
-    previous = read_previous_gold_rows(spark, gold_db)     # {} on first run
-    bitemporal, anomalies = build_bitemporal_tables_from_cdc(previous, cdc_events)
-
-    write_gold_delta_tables(spark, gold_db, bitemporal)    # one table per object kind, append-only,
-                                                            # "never delete, close the interval"
-    if anomalies:
-        write_gold_anomalies_table(spark, gold_db, anomalies)  # this run's punch list — Stage D's
-                                                                # silver_quality precedent, not a crash
-    if fuseki_cfg is not None:
-        for graph_uri in (GRAPH_MASTERDATA, GRAPH_REFDATA, GRAPH_ORACLE, GRAPH_RESULTS):
-            push_named_graph(fuseki_cfg, graph_uri, ds.to_turtle(graph_uri))
-    else:
-        write_nquads_to_object_storage(ds.to_nquads())      # PoC fallback: no Fuseki reachable locally
-'''
