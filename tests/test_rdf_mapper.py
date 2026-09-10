@@ -108,6 +108,65 @@ class TestRdfMapper(unittest.TestCase):
                 [comp["tag"]],
             )
 
+    def test_catchall_component_class_strings_get_the_same_unclassified_fallback(self):
+        # Real Project A/DEXPI finding (2026-09-11): these literal
+        # ComponentClass strings are emitted by the source tool itself when
+        # it couldn't resolve a specific class -- confirmed against the
+        # real PCA PLM equipment ontology (specs/semantics/equipment.rdf)
+        # to have no counterpart there at all, so they're treated exactly
+        # like component_class=None rather than minted as bogus domain
+        # classes that could never be RDL-resolved.
+        from gold import rdf_mapper
+        rdf_type = URIRef("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
+        rdfs_sub = URIRef("http://www.w3.org/2000/01/rdf-schema#subClassOf")
+        for catchall in sorted(v.CATCHALL_COMPONENT_CLASSES):
+            comp = {"component_id": f"C-{catchall}", "component_class": catchall, "tag": "T1"}
+            ds = Dataset()
+            rdf_mapper.declare_ontology_skeleton(ds)
+            rdf_mapper.map_component(ds, comp)
+            node = URIRef(v.uri(v.PIDSYS + "component/", comp["component_id"]))
+            self.assertEqual(
+                len(list(ds.triples(s=node, p=rdf_type, o=URIRef(v.C_UNCLASSIFIED_COMPONENT), graph=v.GRAPH_MASTERDATA))),
+                1,
+                f"{catchall} should fall back to C_UNCLASSIFIED_COMPONENT",
+            )
+            # no bogus domain class minted at all for the catch-all string
+            bogus_cls = URIRef(v.component_class_uri(catchall))
+            self.assertEqual(list(ds.triples(s=bogus_cls, p=rdfs_sub, graph=v.GRAPH_MASTERDATA)), [])
+            # no componentClass literal, no RDL-pending flag -- same as the None case
+            self.assertEqual(list(ds.triples(s=node, p=URIRef(v.P_COMPONENT_CLASS), graph=v.GRAPH_MASTERDATA)), [])
+            self.assertEqual(
+                list(ds.triples(s=URIRef(v.C_UNCLASSIFIED_COMPONENT), p=URIRef(v.P_RDL_URI_PENDING), graph=v.GRAPH_MASTERDATA)),
+                [],
+            )
+            # tag still asserted -- only component_class is affected
+            self.assertEqual(
+                [q.o.toPython() for q in ds.triples(s=node, p=URIRef(v.P_TAG), graph=v.GRAPH_MASTERDATA)],
+                [comp["tag"]],
+            )
+
+    def test_catchall_match_is_exact_not_substring(self):
+        # A real class name that merely contains "Custom" must NOT be
+        # swept into the fallback -- CATCHALL_COMPONENT_CLASSES is an
+        # exact-match set, not a prefix/substring rule (none seen in real
+        # data so far, but the mechanism must not false-positive if one
+        # ever appears).
+        from gold import rdf_mapper
+        rdf_type = URIRef("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
+        ds = Dataset()
+        rdf_mapper.declare_ontology_skeleton(ds)
+        comp = {"component_id": "C-LOOKALIKE", "component_class": "CustomValveXYZ", "tag": "T9"}
+        rdf_mapper.map_component(ds, comp)
+        node = URIRef(v.uri(v.PIDSYS + "component/", "C-LOOKALIKE"))
+        domain_cls = URIRef(v.component_class_uri("CustomValveXYZ"))
+        self.assertEqual(
+            len(list(ds.triples(s=node, p=rdf_type, o=domain_cls, graph=v.GRAPH_MASTERDATA))), 1
+        )
+        self.assertEqual(
+            [q.o.toPython() for q in ds.triples(s=node, p=URIRef(v.P_COMPONENT_CLASS), graph=v.GRAPH_MASTERDATA)],
+            ["CustomValveXYZ"],
+        )
+
     def test_domain_class_is_subclass_of_piping_component_which_is_ido_physical_object(self):
         rdfs_sub = URIRef("http://www.w3.org/2000/01/rdf-schema#subClassOf")
         gate_valve = URIRef(v.component_class_uri("GateValve"))

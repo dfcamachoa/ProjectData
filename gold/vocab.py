@@ -66,6 +66,33 @@ def component_class_uri(component_class: str) -> str:
     return PIDSYS + safe
 
 
+# --- Confirmed catch-all component_class strings (Cause A, ido_semantic_
+# mapping_spec.md §4.4) ------------------------------------------------
+# Real Project A/DEXPI data confirms these four literal ComponentClass
+# strings are emitted by the source tool itself when it could not resolve
+# a specific class -- not missing data, and not a real classification.
+# Verified 2026-09-10 against the actual reference ontology
+# (ProjectData:specs/semantics/equipment.rdf, the PCA PLM equipment
+# library, 246 classes): none of these four strings, nor any "Custom"/
+# "Generic"/"Unclassified"-named class, exists anywhere in that library.
+# Every real class there is a specific, named equipment/component type
+# (Gate Valve, Pump, Heat Exchanger, ...) -- there is no catch-all class
+# to map these onto, in this version or any future one, since the
+# ontology's own design has no placeholder tier. So these strings are
+# structurally equivalent to component_class being absent/None, and
+# map_component treats them identically: routed to
+# C_UNCLASSIFIED_COMPONENT instead of minting a domain class that could
+# never be RDL-resolved. An exact-match set, not a prefix/substring rule,
+# so a real class that merely contains "Custom" as a substring (none seen
+# in real data so far) is never misclassified.
+CATCHALL_COMPONENT_CLASSES = frozenset({
+    "CustomComponent",
+    "CustomPipingComponent",
+    "CustomPipeFitting",
+    "GenericComponent",
+})
+
+
 # --- pidsys: predicates ---
 P_HAS_PART = PIDSYS + "hasPart"
 P_PART_OF = PIDSYS + "partOf"

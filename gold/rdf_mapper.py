@@ -114,11 +114,24 @@ def map_component(ds: Dataset, comp: dict, rdl_uri: Optional[str] = None) -> Non
     silent guess at a class), and skips the `P_COMPONENT_CLASS` literal and
     the RDL-pending flag, both of which only mean something for a real
     domain class.
+
+    As of 2026-09-11, the same treatment is extended to
+    `vocab.CATCHALL_COMPONENT_CLASSES` — literal strings the source tool
+    itself emits (`CustomPipingComponent`, `GenericComponent`, ...) when it
+    could not resolve a specific class. Confirmed against the real PCA PLM
+    equipment reference ontology (`specs/semantics/equipment.rdf`, 246
+    classes) that none of these strings, nor any catch-all/placeholder
+    class of any name, exists in the reference vocabulary — so minting a
+    domain class for one is not "pending RDL resolution", it is a
+    classification that can never resolve. Both cases collapse onto the
+    same `component_class = None`-shaped code path below.
     """
     RDFS_SUBCLASSOF = U("http://www.w3.org/2000/01/rdf-schema#subClassOf")
     RDF_TYPE = U("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
     node = _resource("component", comp["component_id"])
     component_class = comp.get("component_class")
+    if component_class in v.CATCHALL_COMPONENT_CLASSES:
+        component_class = None
     if component_class:
         domain_cls = U(v.component_class_uri(component_class))
         ds.add(domain_cls, RDFS_SUBCLASSOF, U(v.C_PIPING_COMPONENT), v.GRAPH_MASTERDATA)
