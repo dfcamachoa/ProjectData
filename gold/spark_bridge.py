@@ -110,21 +110,55 @@ def _line_attrs_from_aggregate(line_obj: dict) -> dict:
     return attrs
 
 
+# Per-physical-segment scalar fields kept verbatim (never reduced to a
+# distinct-value set) for `map_line`'s child Segment nodes — the user's own
+# correction that a segment carries its own real engineering attributes,
+# not just a placeholder identity nested under its Line. `segment_id` and
+# `seg_tag` identify the piece; the rest mirror `LINE_ENGINEERING_ATTR_FIELDS`
+# plus the containment/oracle fields `rdf_mapper.map_segment` already reads.
+_SEGMENT_PIECE_FIELDS = (
+    "segment_id", "seg_tag", "fluid", "unit", "diameter", "piping_materials_class",
+    "insul_type", "insul_purpose", "insul_thick",
+    "subline_tag", "pns_tag", "src_turnover", "src_subsystem",
+)
+
+
+def _segment_piece_attrs(row: dict) -> dict:
+    """One physical `silver_segments` row's own scalar attributes, kept
+    exactly as recorded (never aggregated into a set) — the shape
+    `rdf_mapper.map_line` hands to `map_segment` per piece."""
+    return {k: row[k] for k in _SEGMENT_PIECE_FIELDS if row.get(k) is not None}
+
+
 def resolve_line_attrs_for_event(seg_tag: str, dwg: str, lines: "list[dict]",
                                   segment_rows: "list[dict]") -> "Optional[dict]":
     """A line-grain event's attrs: prefer the real `aggregate_lines` result
     already computed for this drawing (`lines`); fall back to
     `aggregate_line_attrs` over the matching raw `silver_segments` pieces
     when `lines` is empty (no `silver/` on the path). Returns `None` when
-    neither source has a match, so the caller can skip and count it."""
+    neither source has a match, so the caller can skip and count it.
+
+    Either way, the returned attrs also carry `"pieces"`: each matching raw
+    `silver_segments` row's own un-reduced scalar attributes
+    (`_segment_piece_attrs`), regardless of which branch computed the
+    aggregated fields — `rdf_mapper.map_line` uses this to emit real child
+    Segment nodes rather than a placeholder. `pieces` can legitimately come
+    back `[]` even when the aggregated fields are non-empty, if `segment_rows`
+    doesn't cover this drawing (a caller passing a narrower `segment_rows`
+    than what produced `lines`) — an honest reflection of the caller's own
+    inputs, not a bug in this function.
+    """
     match = next((l for l in lines if l.get("seg_tag") == seg_tag), None)
-    if match is not None:
-        return _line_attrs_from_aggregate(match)
     pieces = [r for r in segment_rows
               if r.get("drawing_number") == dwg and r.get("seg_tag") == seg_tag]
-    if not pieces:
+    if match is not None:
+        attrs = _line_attrs_from_aggregate(match)
+    elif pieces:
+        attrs = aggregate_line_attrs(pieces)
+    else:
         return None
-    return aggregate_line_attrs(pieces)
+    attrs["pieces"] = [_segment_piece_attrs(p) for p in pieces]
+    return attrs
 
 
 def build_events(

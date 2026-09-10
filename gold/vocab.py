@@ -40,8 +40,14 @@ C_STARTUP_PACKAGE = PIDSYS + "StartUpPackage"
 C_PROCESS_UNIT = PIDSYS + "ProcessUnit"
 C_PIPELINE_SYSTEM = PIDSYS + "PipelineSystem"
 C_SUBLINE = PIDSYS + "Subline"
+C_LINE = PIDSYS + "Line"               # Gold's own line-grain aggregation unit (silver_cdc.py OBJECT_KINDS
+                                        # "line") -- the physical line as CDC/bi-temporally versions it;
+                                        # a PipingSegment (below) is one as-drawn piece of it (gold_layer_spec.md §3.2/§4.4)
 C_PIPING_SEGMENT = PIDSYS + "PipingSegment"
 C_PIPING_COMPONENT = PIDSYS + "PipingComponent"
+C_UNCLASSIFIED_COMPONENT = PIDSYS + "UnclassifiedComponent"  # comp["component_class"] missing/None in
+                                                              # real Silver data -- map_component's honest
+                                                              # fallback instead of crashing on a KeyError
 C_EQUIPMENT = PIDSYS + "Equipment"
 C_NOZZLE = PIDSYS + "Nozzle"
 C_CONNECTION = PIDSYS + "Connection"
@@ -66,7 +72,23 @@ P_PART_OF = PIDSYS + "partOf"
 P_HAS_START_UP_PACKAGE = PIDSYS + "hasStartUpPackage"
 P_TAG = PIDSYS + "tag"
 P_COMPONENT_CLASS = PIDSYS + "componentClass"
+P_EQUIPMENT_CLASS = PIDSYS + "equipmentClass"          # added 2026-09-11: silver_equipment's own
+                                                        # equipment_class is always None ("class
+                                                        # enrichment: later" -- silver/reconstruct.py);
+                                                        # real data confirmed the ONLY place that
+                                                        # classification actually lives is the
+                                                        # Equipment-kind silver_components duplicate
+                                                        # risk #15 excludes from projection -- see
+                                                        # rdf_mapper.map_equipment / gold_job.py
 P_FLUID_CODE = PIDSYS + "fluidCode"
+P_UNIT = PIDSYS + "unit"                                   # a segment/line's own engineering attrs --
+P_DIAMETER = PIDSYS + "diameter"                            # never asserted before this addition (map_segment
+P_PIPING_MATERIALS_CLASS = PIDSYS + "pipingMaterialsClass"  # previously only emitted tag/fluidCode/partOf)
+P_INSULATION_TYPE = PIDSYS + "insulationType"
+P_INSULATION_PURPOSE = PIDSYS + "insulationPurpose"
+P_INSULATION_THICKNESS = PIDSYS + "insulationThickness"
+P_PIECE_COUNT = PIDSYS + "pieceCount"                       # a Line's own aggregate metadata (spark_bridge.py)
+P_LINE_ATTR_INCONSISTENT = PIDSYS + "lineAttrInconsistent"  # True iff pieces disagree on a field -- flagged, not resolved
 P_CATEGORY = PIDSYS + "category"
 P_SUBCATEGORY = PIDSYS + "subcategory"
 P_IS_CONNECTED_TO = PIDSYS + "isConnectedTo"          # symmetric, undirected

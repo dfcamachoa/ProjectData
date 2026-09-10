@@ -106,6 +106,25 @@ class TestResolveLineAttrsForEvent(unittest.TestCase):
         self.assertEqual(attrs["neighbour_lines"], ("L-2",))
         self.assertEqual(attrs["piece_count"], 2)
         self.assertFalse(attrs["line_attr_inconsistent"])
+        self.assertEqual(attrs["pieces"], [])  # no segment_rows passed -> honestly empty, not an error
+
+    def test_pieces_attached_from_segment_rows_even_in_the_real_aggregate_branch(self):
+        # The aggregated fields come from `lines` (silver.cdc.aggregate_lines'
+        # own reduced output, which carries no per-piece dicts); `pieces`
+        # must still be resolved from `segment_rows` separately in this
+        # branch, not left empty just because a real `lines` match existed.
+        lines = [{"seg_tag": "L-1", "fluid_set": ("PG",), "unit_set": ("BAR",),
+                  "diameter_set": ('2"',), "piping_materials_class_set": ("WBF",),
+                  "insul_type_set": (), "insul_purpose_set": (), "insul_thick_set": (),
+                  "inconsistent": [], "neighbour_lines": [], "piece_uids": ["S1", "S2"]}]
+        segment_rows = [
+            {"drawing_number": "DWG-1", "seg_tag": "L-1", "segment_id": "S1", "fluid": "PG", "diameter": '2"'},
+            {"drawing_number": "DWG-1", "seg_tag": "L-1", "segment_id": "S2", "fluid": "PG", "diameter": '2"'},
+            {"drawing_number": "DWG-1", "seg_tag": "L-2", "segment_id": "S3", "fluid": "N"},  # a different line
+        ]
+        attrs = resolve_line_attrs_for_event("L-1", "DWG-1", lines, segment_rows)
+        self.assertEqual({p["segment_id"] for p in attrs["pieces"]}, {"S1", "S2"})
+        self.assertEqual(attrs["pieces"][0]["fluid"], "PG")
 
     def test_falls_back_to_aggregate_line_attrs_when_no_lines_match(self):
         segment_rows = [
@@ -116,6 +135,7 @@ class TestResolveLineAttrsForEvent(unittest.TestCase):
         self.assertIsNotNone(attrs)
         self.assertEqual(attrs["fluid"], ("PG",))
         self.assertEqual(attrs["piece_count"], 2)
+        self.assertEqual({p["segment_id"] for p in attrs["pieces"]}, {"S1", "S2"})
 
     def test_returns_none_when_neither_source_has_a_match(self):
         attrs = resolve_line_attrs_for_event("L-missing", "DWG-1", [], [])
