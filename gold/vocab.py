@@ -66,6 +66,19 @@ def component_class_uri(component_class: str) -> str:
     return PIDSYS + safe
 
 
+def component_class_alias_uri(component_class: str) -> str:
+    """§4.3.1's label-bridge alias node for a ComponentClass STRING --
+    distinct from component_class_uri's domain-class node (never asserted
+    as an rdf:type or subclassed under anything; it names "the string
+    'GateValve' as an alias lookup key", not the domain class itself).
+    The original string is also asserted as a P_COMPONENT_CLASS literal on
+    this node (rdf_mapper.map_componentclass_plm_aliases) rather than
+    reconstructed from this URI-safe encoding, so a class containing a
+    literal underscore still round-trips correctly."""
+    safe = component_class.replace(" ", "_")
+    return PIDSYS + "componentclass_alias/" + safe
+
+
 # --- Confirmed catch-all component_class strings (Cause A, ido_semantic_
 # mapping_spec.md §4.4) ------------------------------------------------
 # Real Project A/DEXPI data confirms these four literal ComponentClass
@@ -137,6 +150,25 @@ P_HAS_BOUNDARY_ROLE = PIDSYS + "hasBoundaryRole"
 P_RDL_URI_PENDING = PIDSYS + "rdlUriPending"           # records the unresolved RDL mapping, see IDO note above
 P_MEMBER = PIDSYS + "member"
 P_BOUNDARY_MEMBER = PIDSYS + "boundaryMember"
+
+# --- §4.3.1 RDL/PLM resolution bridges (gold_layer_spec.md risk #18) ---
+# Discharges P_RDL_URI_PENDING via a graph:refdata crosswalk lookup, never
+# a hardcoded rdf_mapper.py mapping. Two format-scoped bridges converge on
+# the same domain_cls owl:sameAs assertion map_component already makes:
+#   DEXPI   -- component_class_uri (an RDS... URI) -> SKOS_EXACT/CLOSE_MATCH
+#              -> a PLM URI, via the crosswalk map_rds_plm_crosswalk loads.
+#   PostProc -- component_class (a string; PostProc carries no RDL URIs at
+#              all, verified -- ido_semantic_mapping_spec.md §4.1) -> a
+#              curated alias -> a PLM URI, via map_componentclass_plm_aliases.
+SKOS = "http://www.w3.org/2004/02/skos/core#"
+SKOS_EXACT_MATCH = SKOS + "exactMatch"
+SKOS_CLOSE_MATCH = SKOS + "closeMatch"
+
+P_RDL_MATCH_TYPE = PIDSYS + "rdlMatchType"  # "exact" | "close" | "label" -- how a resolved rdlUri was reached
+P_PENDING_REVIEW = PIDSYS + "pendingReview"  # a close/label match on a boundary-forming class (§4.5's review-gate
+                                              # discipline) -- must clear human review before a trusted
+                                              # systemization run reads it; exact matches never set this
+P_ALIAS_OF = PIDSYS + "aliasOf"              # a componentclass_alias_uri() node -> its curated PLM target URI
 
 # --- prov: predicates (results graph) ---
 P_WAS_DERIVED_FROM = PROV + "wasDerivedFrom"

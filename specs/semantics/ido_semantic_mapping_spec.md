@@ -1,13 +1,16 @@
 # IDO Semantic Mapping Specification — Pre-commissioning Systemization
 
-**Status:** Draft for review · v0.1 (consolidated)
-**Date:** 2026-09-10
+**Status:** Draft for review · v0.2 (reconciled to the built ontology)
+**Date:** 2026-09-16
 **Data Product:** Automatic Pre-commissioning Systemization based on P&ID interoperability data
 **Purpose:** Define how the data product's canonical plant model and computed systemization are mapped to a POSC Caesar / IDO semantic representation — the ontology foundation, the object-by-object coverage, the real-data bridge coverage across both source formats, and the placement of each concern across the medallion tiers.
 
 **Consumes:** *Master Data, Reference Data & Metadata Specification* **[MD]**, *Systemization Output Specification* **[SS]**, *Algorithm Specification* **[ALG]**.
 **Companions in the medallion set:** `silver_layer_spec.md`, `claude_gold_layer_spec.md`, `medallion_rdf_ido_strategy_mapping.md`, `architecture_note.md`.
-**Supersedes:** `ido_coverage_table.md` (now §3) and `ido_mapping_placement_note.md` (now §5) — this document folds both in and adds the empirical coverage analysis (§4).
+**Built artifacts (Workstream 2):** `pidsys_extension.ttl` (the extension ontology, reasoner-verified consistent under HermiT), `document_types_refdata.ttl` (document-type SKOS stub), `workstream_2_precomm_ontology_scoping.md` (the extension's scoping note — authoritative for the extension's internal design).
+**Supersedes:** `ido_coverage_table.md` (now §3), `ido_mapping_placement_note.md` (now §5), and v0.1 of this document.
+
+> **v0.2 reconciliation note.** This revision aligns the spec with the extension ontology actually built and reasoner-verified in Workstream 2. Three changes are **deliberate reversals of v0.1 decisions**, not typo fixes, and are called out where they occur: (a) the extension prefix is **`pidsys:`**, not `precomm:`; (b) the ontology baseline is re-pinned to **IDO/LIS-14 v4.2 (FDIS)**, reversing v0.1 §1.2's choice of the 2021 core; (c) made physical items anchor on **`lis:PhysicalArtefact`**, not bare `lis:InanimatePhysicalObject`. The empirical bridge analysis (§4) and tier placement (§5) are unchanged — those findings are format facts, independent of the ontology version.
 
 ---
 
@@ -19,23 +22,29 @@ The data product reconstructs a format-independent plant model from P&ID interop
 
 It is the on-ramp to the program's semantic thesis (rules applied to data, no hardcode, IDO-aligned, provenance-traceable). It does **not** re-derive the systemization rules; those are specified in [ALG] and [SS] and are re-housed here into a declarative surface, exactly as the medallion strategy re-houses rather than re-derives.
 
-### 1.2 Ontology baseline (decided)
+This is a **mapping** spec — it states how each master-data object *maps in principle*. The extension ontology (`pidsys_extension.ttl`) is the **built** subset; where the two differ in scope (e.g. instrumentation, §3.2), the mapping is retained here as design intent while the built ontology defers it (§6.4).
 
-**The program baseline is the LIS-14 2021 core** — the PCA "Part 14" upper ontology, the OWL 2 DL rendering of ISO 15926-2, issued 2021-08-06, namespace `lis: <http://rds.posccaesar.org/ontology/lis14/rdl/>`. Verified contents: **33 classes, 63 object properties, 3 datatype properties.**
+### 1.2 Ontology baseline (decided — v4.2 FDIS)
 
-> **Version caveat — carried forward.** This is **not** LIS-14-for-FDIS (the IDO 4.2 candidate the sibling schedule-IDO project used). Temporal-datum terms that project confirmed (`TemporalDatum`, `temporalValue`, `Specified`/`Actual`) are **absent from this core** — they belong to the FDIS layer. This does not affect the systemization mapping, which needs physical objects, connectivity, and composition (all present). But it means the schedule-IDO prototype and this systemization work rest on **different LIS-14 versions**; if the two are ever unified, that gap must be reconciled. For this product, the 2021 core is the baseline.
+**The baseline is IDO / LIS-14 v4.2 (FDIS candidate)** — the current POSC Caesar upper ontology, an OWL 2 DL rendering in the ISO 15926-2 lineage, `owl:versionIRI …/lis14/ont/core/4.2` ("FDIS proposal submitted April 2026", modified 2026-04-10), namespace `lis: <http://rds.posccaesar.org/ontology/lis14/rdl/>`, ontology IRI `http://rds.posccaesar.org/ontology/lis14/ont/core`. Approximate contents: **~50 named classes, ~102 object properties, 3 datatype properties.** The extension ontology `owl:imports` this core, and every `ido:`/`lis:` term the extension uses has been audited against this file and the assembled ontology confirmed **consistent under HermiT**.
+
+> **Reversal of v0.1 (tracked).** v0.1 baselined on the **LIS-14 2021 core** (33 classes / 63 obj props) and explicitly treated the FDIS layer as a *different* project's baseline. Workstream 2 re-pinned to v4.2 because it is the current PCA artifact, it contains every term the extension needs, and the built ontology is verified against it. Consequences of the move, all confirmed in v4.2: `lis:PhysicalArtefact ⊑ lis:PhysicalObject` **directly** (v4.2 deliberately does not place it under `InanimatePhysicalObject`, "to allow for artificially made organisms"); `lis:FunctionalObject` is present and **not deprecated**; `lis:Feature ⊑ lis:PhysicalObject`; `lis:installedAs` does **not** exist in v4.2 (see §3.1). The 2021-core temporal-datum gap noted in v0.1 is moot on this baseline.
+
+> **Version-unification note.** The sibling schedule-IDO prototype used an earlier FDIS candidate; with this product now also on v4.2, the two are closer to a common baseline than under v0.1, but a precise version match should still be confirmed before any unification.
 
 ### 1.3 The domain library (assessed, recommended for adoption)
 
 The **PCA PLM equipment ontology** (`rds.posccaesar.org/ontology/plm/`, v0.9.0, `ottr:status incomplete`) supplies the domain vocabulary the upper ontology deliberately omits: **246 equipment and component classes** with human-readable labels, arranged in a real taxonomy that roots cleanly into the LIS-14 core —
 
 ```
-Gate Valve   ⊑ Valve       ⊑ Artefact ⊑ lis:InanimatePhysicalObject
-Pipe Reducer ⊑ Pipe Fitting ⊑ Artefact ⊑ lis:InanimatePhysicalObject
-Separator    ⊑ Static Equipment ⊑ Artefact ⊑ lis:InanimatePhysicalObject
+Gate Valve   ⊑ Valve        ⊑ Artefact ⊑ lis:PhysicalObject
+Pipe Reducer ⊑ Pipe Fitting ⊑ Artefact ⊑ lis:PhysicalObject
+Separator    ⊑ Static Equipment ⊑ Artefact ⊑ lis:PhysicalObject
 ```
 
 It covers the product's actual component vocabulary directly (all valve types, flanges, reducers/tees/elbows, nozzles, actuator types, vessels/columns/pumps/exchangers, instrument element/transmitter types). **Recommendation: adopt it as the domain-vocabulary tier.** It is the "resolve component class to an RDL URI" target that the coverage table (§3) marks *RDL*, and it ships with a pre-built crosswalk to the older RDS identifier namespace (§4.2) that materially reduces the mapping effort. Two cautions: it is marked `incomplete` and imports two further PLM ontologies (`document`, `process`), and a few labels are rough (`Gas Liquide Seperator`, `Pulsation Dampner`) — so **pin the version**.
+
+*(The PLM taxonomy's own upper anchor — whether its `Artefact` roots via `InanimatePhysicalObject` or, as in v4.2's core, directly under `PhysicalObject` — should be checked against the pinned v4.2 core when the crosswalk is wired; it does not change which PLM leaf class a component resolves to.)*
 
 ---
 
@@ -45,69 +54,69 @@ Every finding in this document resolves to one target architecture — a layered
 
 | Layer | Content | Source | Owned by |
 |---|---|---|---|
-| **Shared T-Box** | `lis:PhysicalObject`, `lis:System`, `lis:InformationObject`, `lis:connectedTo`, composition properties — the neutral upper ontology | LIS-14 2021 core | shared, use-case-neutral |
+| **Shared T-Box** | `lis:PhysicalObject`, `lis:PhysicalArtefact`, `lis:Feature`, `lis:System`, `lis:InformationObject`, `lis:connectedTo`, composition properties — the neutral upper ontology | LIS-14 v4.2 core | shared, use-case-neutral |
 | **Domain vocabulary** | Component / equipment classes (Gate Valve, Column…) | PCA PLM library + RDS RDL | shared, use-case-neutral |
-| **`precomm:` extension** | Reified `Connection`, `flowsTo`, `ProcessUnit`, `StartUpPackage`, `CommissioningSystem`, `OffPageConnector`, boundary role, node identity | net-new, small | this data product |
+| **`pidsys:` extension** | Reified `Connection`, `flowsTo`, `ProcessUnit`, `StartUpPackage`, `CommissioningSystem`, `InstrumentationLoop`, `OffPageConnector`, `Nozzle`, `ConnectionNode`, `Document`, `Line`/`Subline`, boundary role | net-new, small | this data product |
 | **Rule layer** | Self-owning networks (OWL), directional guards + cut limits (SHACL/SPARQL) | net-new; ports [ALG] | rule package (systemization) |
 
 **The neutrality line (non-negotiable, per strategy §8.3):** the shared T-Box and domain vocabulary model *plant data, not systemization data*. Each rule package brings its own extension classes and reference data; they meet only at the shared, neutral facts. Blur this and the framework stops generalising — you have a systemization tool with delusions of being a platform.
 
 ---
 
-## 3. LIS-14 coverage — object by object (verified against the file)
+## 3. LIS-14 coverage — object by object (verified against v4.2)
 
-**Legend.** **FOUND** — term exists in `lis14.rdf`, verified · **RDL** — a domain class resolved to a POSC Caesar RDL / PLM URI, not the upper ontology · **EXT** — needs a `precomm:` class/property · **SHACL/rule** — expressible only as a constraint or rule, not a T-Box axiom.
+**Legend.** **FOUND** — term exists in the v4.2 core, verified · **RDL** — a domain class resolved to a POSC Caesar RDL / PLM URI, not the upper ontology · **EXT** — needs a `pidsys:` class/property · **SHACL/rule** — expressible only as a constraint or rule, not a T-Box axiom.
 
-### 3.1 Foundational anchors confirmed present
+### 3.1 Foundational anchors confirmed present (v4.2)
 
-| LIS-14 term | Kind | Domain→range | Role in this mapping |
+| LIS-14 v4.2 term | Kind | Domain→range | Role in this mapping |
 |---|---|---|---|
 | `lis:PhysicalObject` ⊑ `lis:Object` | class | — | Root for every placed plant item |
-| `lis:InanimatePhysicalObject` ⊑ `lis:PhysicalObject` | class | — | Piping components, equipment |
-| `lis:FunctionalObject` ⊑ `lis:Object` | class | — | **Confirmed real** — the strategy doc's "unconfirmed placeholder" caveat is resolved |
-| `lis:System` ⊑ `lis:FunctionalObject` | class | — | Native home for grouping/system concepts |
-| `lis:InformationObject` ⊑ `lis:Object` | class | — | Documents (drawings) |
-| `lis:Stream` ⊑ `lis:InanimatePhysicalObject` | class | — | Fluid streams (future [MD] stream objects) |
-| `lis:Activity` ⊑ owl:Thing | class | — | Commissioning activities (Phase C / test packages) |
-| `lis:connectedTo` | obj prop | `PhysicalObject → (PhysicalObject)` | Undirected connectivity — the graph [SS] walks |
-| `lis:directlyConnectedTo` | obj prop | — | Node-adjacent connectivity |
-| `lis:contains` / `lis:containedBy` | obj prop | `PhysicalObject → PhysicalObject` | Containment |
+| `lis:InanimatePhysicalObject` ⊑ `lis:PhysicalObject` | class | — | Inanimate physical objects (e.g. the physical pipe pieces realising a segment) |
+| `lis:PhysicalArtefact` ⊑ `lis:PhysicalObject` | class | — | **Made physical items** — piping components, equipment. Direct under PhysicalObject in v4.2 |
+| `lis:Feature` ⊑ `lis:PhysicalObject` | class | — | Connection points / nozzles (a part on a physical object); on the connectivity graph |
+| `lis:FunctionalObject` ⊑ `lis:Object` | class | — | **Confirmed real and NOT deprecated in v4.2**; `⊑ Object` + `hasFunction some Function` |
+| `lis:System` ⊑ `lis:FunctionalObject` | class | — | Native home for grouping/system concepts; `⊑ hasFunctionalPart some FunctionalObject` |
+| `lis:InformationObject` ⊑ `lis:Object` | class | — | Documents (drawings), reified connections; disjoint with PhysicalObject |
+| `lis:Function` | class | — | Instrument / component function |
+| `lis:Activity` | class | — | Commissioning activities (Phase C / test packages) |
+| `lis:connectedTo` | obj prop | `PhysicalObject → PhysicalObject`, **Symmetric** | Undirected connectivity — the graph [SS] walks |
+| `lis:directlyConnectedTo` | obj prop | ⊑ connectedTo, Symmetric | Node-adjacent connectivity |
 | `lis:hasArrangedPart` / `lis:arrangedPartOf` | obj prop | ⊑ hasPart | Spatial/arrangement composition |
-| `lis:hasAssembledPart` / `lis:assembledPartOf` | obj prop | ⊑ hasPart | Assembly composition (component on segment) |
-| `lis:functionalPartOf` / `lis:hasFunctionalPart` | obj prop | `FunctionalObject → System` | Membership of a functional object in a system |
-| `lis:installedAs` | obj prop | `PhysicalObject → FunctionalObject` | The ISO 15926 physical↔functional split |
-| `lis:hasFunction` | obj prop | `→ Function` | Instrument → its function |
-| `lis:hasPhysicalQuantity` | obj prop | `PhysicalObject → PhysicalQuantity` | Nominal diameter, etc. |
-| `lis:hasDisposition` | obj prop | `→ Disposition` | Component behaviour (candidate for boundary role) |
-| `lis:representedBy` / `lis:representedIn` | obj prop | `→ InformationObject` | Component shown on a Document |
-| `lis:residesIn` | obj prop | `PhysicalObject → Location` | Component in a spatial location |
+| `lis:hasAssembledPart` / `lis:assembledPartOf` | obj prop | ⊑ hasArrangedPart | Assembly composition (component on segment) |
+| `lis:hasFeature` / `lis:featureOf` | obj prop | `→ Feature` (⊑ hasArrangedPart) | Component/equipment → its feature (nozzle, connection node) |
+| `lis:functionalPartOf` / `lis:hasFunctionalPart` | obj prop | `System → FunctionalObject` | Membership of a functional object in a system |
+| `lis:hasFunction` | obj prop | `→ Function` | A functional object → its function |
+| `lis:realizedIn` | obj prop | `Potential → Activity` | Function realised in an activity (the physical/functional bridge, with participation) |
+
+**Removed from the v0.1 anchor table:** `lis:installedAs` — it does **not** exist in v4.2, and it was in any case the tag-vs-serial-numbered-artefact relation (`InstalledObject → PrescriptiveObject`), **not** the physical↔functional bridge v0.1 implied. The physical→functional link is the **function-realization pattern**: a functional individual `hasFunction some Function`; that Function (`⊑ Potential`) is `realizedIn` an `Activity` in which the physical object participates.
 
 **Two structural gaps confirmed against the vocabulary:**
 
-1. **No flow-direction property.** `connectedTo` is undirected; there is no `flowsTo`. The three directional guards ([ALG §6]) *require* an EXT `precomm:flowsTo`.
-2. **No native reified-connection class.** `connectedTo` is a bare property and cannot carry the Source/Derived provenance flag ([MD §2.12]). Reify as `precomm:Connection` (or RDF-star).
+1. **No flow-direction property.** `connectedTo` is undirected and Symmetric; there is no `flowsTo`. The three directional guards ([ALG §6]) *require* an EXT `pidsys:flowsTo` — which cannot be a subproperty of the symmetric `connectedTo` (it would inherit symmetry and lose direction), so it is a standalone extension property.
+2. **No native reified-connection class.** `connectedTo` is a bare property and cannot carry the Source/Derived provenance flag ([MD §2.12]). Reify as `pidsys:Connection ⊑ lis:InformationObject` (an information artifact about two objects).
 
 ### 3.2 Master-data objects ([MD §2])
 
 | # | [MD] object | Mapping | Verdict | Notes |
 |---|---|---|---|---|
-| 2.1 | **Document** (P&ID) | `lis:InformationObject` | FOUND | Component→doc via `lis:representedIn`. Two business keys → EXT datatype props. |
-| 2.1a | **Process Unit** | `lis:System` + EXT | EXT | Tag-decoded grouping level. `precomm:ProcessUnit ⊑ lis:System`; SUP join is a classification. |
-| 2.1b | **Start-Up Package** | `lis:System` + EXT | EXT | Reference-data-provided root. `precomm:StartUpPackage ⊑ lis:System`; `UnitSUP` = classification link; sequence = datatype prop. |
-| 2.2 | **Pipeline System** | `lis:System` | FOUND-ish | Functional grouping via `lis:hasFunctionalPart`; Tag → EXT datatype prop. |
-| 2.2a | **Sub Piping System (Subline)** | `lis:System` + EXT | FOUND-ish | Project-B-only intermediate level; same pattern one level down. |
-| 2.3 | **Piping Segment** | `lis:InanimatePhysicalObject` + RDL | FOUND | Physical object; class resolves to RDL; components via `lis:hasAssembledPart`. |
-| 2.4 | **Piping Component** | `lis:InanimatePhysicalObject` + **RDL** | FOUND+RDL | Object is FOUND; **Component Class** (GateValve, Reducer…) is **RDL** — where the class-resolution bridge (§4) plugs in. |
-| 2.4.1 | **Connection Node** | `lis:Feature` + EXT | EXT | `lis:Feature ⊑ PhysicalObject`; per-node diameter via `hasPhysicalQuantity`; node identity EXT. |
-| 2.5 | **Instrument** | `lis:InanimatePhysicalObject` + RDL | FOUND+RDL | Specialisation of Piping Component; in-line vs off-line = EXT attribute. |
-| 2.6 | **Actuator** | `lis:InanimatePhysicalObject` + RDL | FOUND+RDL | `operates` the valve → EXT property. |
-| 2.7 | **Instrument Function** | `lis:Function` | FOUND | `lis:hasFunction`; realised-by via `lis:realizedIn` / EXT. |
-| 2.8 | **Instrumentation Loop** | `lis:System` + EXT | EXT | `precomm:InstrumentationLoop ⊑ lis:System`; members via `hasFunctionalPart`. |
-| 2.9 | **Process Equipment** | `lis:InanimatePhysicalObject` + RDL | FOUND+RDL | Equipment Class is RDL; ghost-filter is an ingestion/SHACL rule, not ontology. |
-| 2.9.1 | **Nozzle** | `lis:Feature` + EXT | EXT | Feature/part of equipment; the pipe-to-equipment boundary. |
-| 2.10 | **Signal** | `lis:connectedTo` variant + EXT | EXT | Instrument-side connectivity; `precomm:signalConnectedTo` or reified. |
-| 2.11 | **Off-Page Connector** | EXT | EXT | No LIS-14 term; `precomm:OffPageConnector` + pairing key; drives [ALG §5] assembly. |
-| 2.12 | **Connection** (reified edge) | EXT `precomm:Connection` | EXT | **Keystone EXT class.** From/To, nodes, type, Source/Derived flag. |
+| 2.1 | **Document** (P&ID) | `pidsys:Document ⊑ lis:InformationObject` | FOUND+EXT | Declared as `pidsys:Document` so Connection/OPC have a concrete "about" target and the containment chain has a root. Component→doc via `lis:representedIn`. Document *type* is SKOS refdata (§5, `document_types_refdata.ttl`), not subclasses. |
+| 2.1a | **Process Unit** | `pidsys:ProcessUnit ⊑ lis:System` | EXT | Tag-decoded grouping level; SUP join is a classification. |
+| 2.1b | **Start-Up Package** | `pidsys:StartUpPackage ⊑ lis:System` | EXT | Reference-data-provided root; `UnitSUP` = classification link; sequence = datatype prop. |
+| 2.2 | **Pipeline System** = **Line** | `pidsys:Line ⊑ lis:System` | FOUND+EXT | "Pipeline System" is the master-data name for `pidsys:Line`; **no separate class**. Functional grouping via `lis:hasFunctionalPart`; Tag → EXT datatype prop. |
+| 2.2a | **Sub Piping System (Subline)** | `pidsys:Subline ⊑ lis:System` | EXT | Project-B-only intermediate level; same pattern one level down. |
+| 2.3 | **Piping Segment** | `pidsys:PipingSegment ⊑ lis:System` | EXT | **Functional grouping**, not a physical object — the segment is the slot; the physical pieces realising it are separate `lis:InanimatePhysicalObject` individuals. Components join via `hasFunctionalPart`; shared diameter/class/insulation are the grouping's attributes. |
+| 2.4 | **Piping Component** | `pidsys:PipingComponent ⊑ lis:PhysicalArtefact` + **RDL** | FOUND+RDL | A made physical item; **Component Class** (GateValve, Reducer…) is **RDL** — where the class-resolution bridge (§4) plugs in. |
+| 2.4.1 | **Connection Node** | `pidsys:ConnectionNode ⊑ lis:Feature` | EXT | On the connectivity graph (Feature ⊑ PhysicalObject); per-node diameter via `hasPhysicalQuantity`; node identity EXT; `featureOf` its component. |
+| 2.5 | **Instrument** | `lis:PhysicalArtefact` + RDL | FOUND+RDL *(deferred, §6.4)* | Maps as a made physical item; **out of the built ontology's current scope.** |
+| 2.6 | **Actuator** | `lis:PhysicalArtefact` + RDL | FOUND+RDL *(deferred, §6.4)* | `operates` the valve → EXT property. Out of current built scope. |
+| 2.7 | **Instrument Function** | `lis:Function` | FOUND *(deferred, §6.4)* | `lis:hasFunction`; realised via `lis:realizedIn`. Out of current built scope. |
+| 2.8 | **Instrumentation Loop** | `pidsys:InstrumentationLoop ⊑ lis:System` | EXT | Members via `hasFunctionalPart`. (Class declared; population tied to instrumentation scope.) |
+| 2.9 | **Process Equipment** | `pidsys:Equipment ⊑ lis:PhysicalArtefact` + RDL | FOUND+RDL | Equipment Class is RDL; ghost-filter (tagged + ≥1 nozzle) is an ingestion/SHACL rule, not ontology. |
+| 2.9.1 | **Nozzle** | `pidsys:Nozzle ⊑ lis:Feature` | EXT | Feature of equipment (`featureOf`); the pipe-to-equipment boundary; on the connectivity graph. **Not** a FunctionalObject (that would leave the connectivity graph). |
+| 2.10 | **Signal** | `lis:connectedTo` variant + EXT | EXT *(deferred, §6.4)* | Instrument-side connectivity. Out of current built scope. |
+| 2.11 | **Off-Page Connector** | `pidsys:OffPageConnector ⊑ lis:InformationObject` | EXT | A drawing-continuation symbol and a Connection **endpoint** (sibling of Connection, not a subclass); `terminates` a PipingSegment; pairing key drives [ALG §5] assembly. |
+| 2.12 | **Connection** (reified edge) | `pidsys:Connection ⊑ lis:InformationObject` | EXT | **Keystone EXT class.** From/To (union of PhysicalObject and OffPageConnector), nodes, type, mandatory Source/Derived flag. |
 
 ### 3.3 Systemization output ([SS]) — all computed, all EXT
 
@@ -115,11 +124,11 @@ None are extracted; all are `computed` provenance, and belong in the extension +
 
 | [SS] concept | Mapping | Verdict | Notes |
 |---|---|---|---|
-| **Commissioning System** | `precomm:CommissioningSystem ⊑ lis:System` | EXT | `hasMember`, `hasBoundary`, `computed` provenance, carried `sourceTurnoverAssignment` for Phase C. |
-| **Boundary-forming role** | EXT defined class + SKOS | EXT+rule | `precomm:BoundaryFormingComponent ≡ component whose class ∈ Boundary list`. List stays SKOS refdata; reasoner marks boundaries. |
+| **Commissioning System** | `pidsys:CommissioningSystem ⊑ lis:System` | EXT | `hasMember` (⊑ `lis:hasFunctionalPart`, members are functional individuals reached via the function-realization pattern), `hasBoundary`, `computed` provenance. |
+| **Boundary-forming role** | EXT defined class + SKOS | EXT+rule | `pidsys:BoundaryFormingComponent ≡ component whose class ∈ Boundary list`. List stays SKOS refdata; reasoner marks boundaries. |
 | **Fluid classification** | SKOS scheme on fluid code | EXT+refdata | Category/Subcategory (Process/Utility/Flare/Steam) drives self-owning-network rules. |
 | **Self-owning networks** (flare, steam/condensate) | OWL defined class / property chain | rule (OWL-expressible) | Membership by fluid code + connectivity; no arithmetic. |
-| **Directional guards** (flare, consumer, relief inlet-side) | SHACL/SPARQL over `precomm:flowsTo` | SHACL/rule | Needs materialised flow direction; not OWL-DL-expressible. |
+| **Directional guards** (flare, consumer, relief inlet-side) | SHACL/SPARQL over `pidsys:flowsTo` | SHACL/rule | Needs materialised flow direction; not OWL-DL-expressible. |
 | **"Cut at last manual valve before class change"** | SHACL/SPARQL | SHACL/rule | Ordering + class comparison; arithmetic-adjacent, stays out of OWL. |
 | **Sub-system split** | EXT + human judgement | rule + manual | Open Decisions #1,#2 — organisational judgement, NOT ontology content. |
 
@@ -128,10 +137,13 @@ None are extracted; all are `computed` provenance, and belong in the extension +
 - **Open Decisions #1, #2, #7, #10** ([SS §9]) — equipment-anchoring trigger, sub-system automation, rule precedence, rating-based split. Project inputs or commissioning judgement; surface as reference data / review gates, never T-Box axioms.
 - **The oracle** (`Z_TurnOverSystemNumber`) — a rule-invisible named graph (`graph:oracle`), never read by rules, exactly as `walk.py` refuses it today. Structural enforcement of the compute-only discipline.
 - **Systemization concepts in the shared T-Box** — see the neutrality line (§2).
+- **Document types as classes** — a large, mutable, client-varying vocabulary; SKOS refdata, never `owl:Class` per type (§5).
 
 ---
 
 ## 4. Real-data bridge coverage — the empirical finding
+
+*(Unchanged from v0.1 — these are format facts, independent of the ontology version. The one edit is the upper-ontology anchor in §4.2's worked example: v4.2 roots the PLM leaf under `lis:PhysicalObject`.)*
 
 The coverage in §3 says *what maps in principle*. This section reports *what actually resolves*, measured on real validation drawings from both source formats — because the bridge from a source's component class to the PLM library behaves very differently per format, and that difference shapes the architecture.
 
@@ -141,7 +153,7 @@ Project A (DEXPI) files carry class URIs, but in the **`data.posccaesar.org/rdl/
 
 ### 4.2 The crosswalk is pre-published (for DEXPI)
 
-The PLM equipment library **already contains** the crosswalk back to the RDS namespace: **1,057 references across 208 distinct RDS codes**, wired via SKOS mapping predicates (**345 `closeMatch`, 22 `relatedMatch`, 1 `exactMatch`**). So DEXPI's `RDS…` URIs resolve to PLM classes through mappings **PCA already shipped**, not ones the product must invent. Verified end-to-end on a real vessel: DEXPI `RDS427229` → `skos:closeMatch` → PLM `Pressure Vessel` (`PCA_100005976`) → `⊑ lis:InanimatePhysicalObject`.
+The PLM equipment library **already contains** the crosswalk back to the RDS namespace: **1,057 references across 208 distinct RDS codes**, wired via SKOS mapping predicates (**345 `closeMatch`, 22 `relatedMatch`, 1 `exactMatch`**). So DEXPI's `RDS…` URIs resolve to PLM classes through mappings **PCA already shipped**, not ones the product must invent. Verified end-to-end on a real vessel: DEXPI `RDS427229` → `skos:closeMatch` → PLM `Pressure Vessel` (`PCA_100005976`) → `⊑ lis:PhysicalObject`.
 
 ### 4.3 Coverage measured on real drawings
 
@@ -194,6 +206,8 @@ Two assets, one per adapter, meeting at the shared PLM vocabulary. Both are gove
 
 ## 5. Tier placement — where each concern lives
 
+*(Unchanged from v0.1 — the placement logic is version-independent. `precomm:` → `pidsys:` only.)*
+
 ### 5.1 The mapping is two operations, not one
 
 Treating "the mapping" as a single thing is what makes its tier placement feel ambiguous. Split it:
@@ -241,17 +255,27 @@ Silver's contract "**Silver emits tables, not triples**" (`silver_layer_spec.md`
 
 ### 6.1 The net-new ontology is small and bounded
 
-The plant-fact backbone (physical objects, connectivity, composition, systems, documents) is **natively covered by LIS-14**; the component/equipment vocabulary is **covered by the PLM library**. The net-new `precomm:` extension is only: one reified `Connection` class, a `flowsTo` property, three grouping/output classes (`ProcessUnit`, `StartUpPackage`, `CommissioningSystem`, plus `InstrumentationLoop`), the `OffPageConnector`, the boundary role, and node identity. Everything genuinely hard is the **rule layer**, which is the point of the semantic thesis.
+The plant-fact backbone (physical objects, connectivity, composition, systems, documents) is **natively covered by LIS-14 v4.2**; the component/equipment vocabulary is **covered by the PLM library**. The net-new `pidsys:` extension is only: one reified `Connection` class, a `flowsTo` property, the grouping/output classes (`ProcessUnit`, `StartUpPackage`, `CommissioningSystem`, `InstrumentationLoop`) plus the line-hierarchy groupings (`Line`, `Subline`, `PipingSegment`), the `OffPageConnector`, `Nozzle`/`ConnectionNode` feature identity, `Document`, and the boundary role. Everything genuinely hard is the **rule layer**, which is the point of the semantic thesis.
+
+**Built and reasoner-verified:** `pidsys_extension.ttl` is consistent under HermiT against the v4.2 core. Its internal design is authoritative in `workstream_2_precomm_ontology_scoping.md`.
 
 ### 6.2 Open decisions carried by this spec
 
-1. **LIS-14 version reconciliation** — this product baselines on the 2021 core; the schedule-IDO prototype used FDIS. Reconcile if the two are ever unified (§1.2).
-2. **PLM library version pin** — adopt v0.9.0 but pin it; it is `incomplete` and imports `document`/`process` (§1.3).
+1. **LIS-14 version reconciliation** — this product now baselines on v4.2; confirm an exact version match with the schedule-IDO prototype before any unification (§1.2).
+2. **PLM library version pin** — adopt v0.9.0 but pin it; it is `incomplete` and imports `document`/`process` (§1.3). Confirm its upper anchor against the v4.2 core when wiring the crosswalk.
 3. **Cause-C manual mappings** — curate the ~102 RDS-with-no-PLM-target codes, boundary-forming first (§4.4, §4.6).
 4. **PostProc alias table** — build and review the synonym set that lifts Project-B coverage (§4.4, §4.6).
 5. **Boundary-forming review gate** — operationalise the human review of closeMatch/label targets for boundary classes (§4.5).
+6. **Document-type crosswalk target** — is CFIHOS the alignment target for `pidsys:hasDocumentType` concepts, or a T.EN document-type master? Decides the real URIs in `document_types_refdata.ttl` (§5, currently `pending`).
 
 ### 6.3 Next artifacts (workstreams)
 
 - **Workstream 1.5** — the two crosswalk files (§4.6), boundary-forming prioritised and review-flagged.
-- **Workstream 2** — the `precomm:` extension ontology (§6.1).
+- **Workstream 2** — the `pidsys:` extension ontology (§6.1). **Built and reasoner-verified;** remaining work is code reconciliation, not ontology correctness.
+
+### 6.4 Scope split — mapping spec vs built ontology
+
+This spec maps every [MD] object *in principle*. The built `pidsys_extension.ttl` deliberately defers part of that scope:
+
+- **Deferred from the built ontology (this phase):** Instrument (§2.5), Actuator (§2.6), Instrument Function (§2.7), Signal (§2.10) — the instrumentation cluster. These are decisions, not gaps; the mapping rows above record how they *would* map when the instrumentation scope is opened. The two that need a modelling call (Instrument Function: functional class; Signal: connectivity-variant vs edge) are deferred with the cluster.
+- **Reconcile the code** — `vocab.py` / `rdf_mapper.py` / `walk.py` do not yet emit the model (function-realization membership; functional-only segments; the v4.2 anchors). The ontology leads; the code catches up, or records where it intentionally lags.

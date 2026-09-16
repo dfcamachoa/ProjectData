@@ -42,6 +42,52 @@ class TestGoldJob(unittest.TestCase):
         self.assertIn("https://pidsys.example/ns#graph/masterdata", ds.graphs())
         self.assertIn("https://pidsys.example/ns#graph/refdata", ds.graphs())
 
+    def test_build_rdf_dataset_resolves_rdl_uri_via_crosswalk(self):
+        # §4.3.1 (risk #18), full wiring: a component carrying a
+        # component_class_uri that the supplied crosswalk resolves gets
+        # owl:sameAs + rdlMatchType instead of rdlUriPending -- and since
+        # GateValve is boundary-forming (isolation, BOUNDARY_ROWS) and this
+        # is a "close" match, pendingReview must also be set.
+        components = [dict(COMPONENTS[0])]  # N1, GateValve, isolation-forming
+        components[0]["component_class_uri"] = "http://data.posccaesar.org/rdl/RDS427229"
+        inputs = GoldInputs(
+            components=components, segments=SEGMENTS, equipment=[], connections=[],
+            fluid_catalogue=FLUID_CATALOGUE_ROWS, boundary_rows=BOUNDARY_ROWS,
+            drawing_lineage={},
+            rds_plm_crosswalk=[{
+                "rds_uri": "http://data.posccaesar.org/rdl/RDS427229",
+                "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005976",
+                "match_type": "close",
+            }],
+        )
+        ds = build_rdf_dataset(inputs)
+        domain_cls = URIRef(v.component_class_uri("GateValve"))
+        owl_same_as = URIRef("http://www.w3.org/2002/07/owl#sameAs")
+        self.assertEqual(
+            [q.o.toPython() for q in ds.triples(s=domain_cls, p=owl_same_as, graph=v.GRAPH_MASTERDATA)],
+            ["http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005976"],
+        )
+        self.assertEqual(
+            [q.o.toPython() for q in ds.triples(s=domain_cls, p=URIRef(v.P_RDL_MATCH_TYPE), graph=v.GRAPH_MASTERDATA)],
+            ["close"],
+        )
+        self.assertEqual(
+            [q.o.toPython() for q in ds.triples(s=domain_cls, p=URIRef(v.P_PENDING_REVIEW), graph=v.GRAPH_MASTERDATA)],
+            [True],
+        )
+        self.assertEqual(list(ds.triples(s=domain_cls, p=URIRef(v.P_RDL_URI_PENDING), graph=v.GRAPH_MASTERDATA)), [])
+
+    def test_build_rdf_dataset_with_no_crosswalk_rows_is_unaffected(self):
+        # Backward compatibility: GoldInputs built without the two new
+        # fields (every pre-existing caller/fixture) must still produce
+        # exactly the pre-existing rdlUriPending behavior.
+        ds = build_rdf_dataset(make_inputs())
+        domain_cls = URIRef(v.component_class_uri("GateValve"))
+        self.assertEqual(
+            [q.o.toPython() for q in ds.triples(s=domain_cls, p=URIRef(v.P_RDL_URI_PENDING), graph=v.GRAPH_MASTERDATA)],
+            [True],
+        )
+
     def test_build_rdf_dataset_harvests_equipment_class_from_duplicate_component_row(self):
         # Same real-data finding (2026-09-11) as build_rdf_dataset_from_
         # gold_objects's equivalent test, exercised on this legacy
@@ -167,6 +213,41 @@ class TestBuildRdfDatasetFromGoldObjects(unittest.TestCase):
         node = URIRef(v.uri(v.PIDSYS + "component/", "C1"))
         tags = [q.o.toPython() for q in ds.triples(s=node, p=URIRef(v.P_TAG), graph=v.GRAPH_MASTERDATA)]
         self.assertEqual(tags, ["C1-NEW"])  # the superseded row's tag must not appear
+
+    def test_resolves_rdl_uri_via_the_label_bridge(self):
+        # §4.3.1 (risk #18): the current C1 row's component_class
+        # ("PipeReducer") is not boundary-forming (BOUNDARY_ROWS), so a
+        # label-bridge resolution here must NOT set pendingReview.
+        rows = make_gold_rows_by_kind()
+        ds, _skipped, _equip_dupes = build_rdf_dataset_from_gold_objects(
+            rows, FLUID_CATALOGUE_ROWS, BOUNDARY_ROWS,
+            componentclass_plm_aliases=[
+                {"component_class": "PipeReducer", "plm_uri": "http://example/PLM_PIPEREDUCER"},
+            ],
+        )
+        domain_cls = URIRef(v.component_class_uri("PipeReducer"))
+        owl_same_as = URIRef("http://www.w3.org/2002/07/owl#sameAs")
+        self.assertEqual(
+            [q.o.toPython() for q in ds.triples(s=domain_cls, p=owl_same_as, graph=v.GRAPH_MASTERDATA)],
+            ["http://example/PLM_PIPEREDUCER"],
+        )
+        self.assertEqual(
+            [q.o.toPython() for q in ds.triples(s=domain_cls, p=URIRef(v.P_RDL_MATCH_TYPE), graph=v.GRAPH_MASTERDATA)],
+            ["label"],
+        )
+        self.assertEqual(list(ds.triples(s=domain_cls, p=URIRef(v.P_PENDING_REVIEW), graph=v.GRAPH_MASTERDATA)), [])
+
+    def test_no_crosswalk_params_is_unaffected(self):
+        # Backward compatibility: every existing call site in this file
+        # omits the two new params entirely.
+        ds, _skipped, _equip_dupes = build_rdf_dataset_from_gold_objects(
+            make_gold_rows_by_kind(), FLUID_CATALOGUE_ROWS, BOUNDARY_ROWS,
+        )
+        domain_cls = URIRef(v.component_class_uri("PipeReducer"))
+        self.assertEqual(
+            [q.o.toPython() for q in ds.triples(s=domain_cls, p=URIRef(v.P_RDL_URI_PENDING), graph=v.GRAPH_MASTERDATA)],
+            [True],
+        )
 
     def test_asserts_bitemporal_predicates_from_the_gold_row(self):
         ds, _skipped, _equip_dupes = build_rdf_dataset_from_gold_objects(

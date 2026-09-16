@@ -109,6 +109,85 @@ def is_boundary_forming(component_class: str, boundary_roles: dict) -> bool:
 
 
 # --------------------------------------------------------------------------
+# RDL/PLM resolution bridges [gold_layer_spec.md §4.3.1, risk #18]
+# --------------------------------------------------------------------------
+
+def load_rds_plm_crosswalk(ds: Dataset) -> dict:
+    """graph:refdata RDS→PLM SKOS mapping triples -> {rds_uri: (plm_uri,
+    match_type)} (§4.3.1's DEXPI URI bridge; `rdf_mapper.
+    map_rds_plm_crosswalk` is the writer). `exact` is checked after `close`
+    so an `exactMatch` triple wins if a real crosswalk ever asserted both
+    for the same RDS code — should not happen (the PLM library publishes
+    one match per code), but exact is the higher-confidence answer if it
+    somehow does."""
+    assert_rule_engine_did_not_read_oracle({v.GRAPH_REFDATA})
+    result: dict = {}
+    for match_type, pred in (("close", v.SKOS_CLOSE_MATCH), ("exact", v.SKOS_EXACT_MATCH)):
+        for q in ds.triples(p=URIRef(pred), graph=v.GRAPH_REFDATA):
+            result[str(q.s)] = (str(q.o), match_type)
+    return result
+
+
+def load_componentclass_plm_aliases(ds: Dataset) -> dict:
+    """graph:refdata ComponentClass-string alias triples ->
+    {component_class: plm_uri} (§4.3.1's PostProc label bridge; `rdf_mapper.
+    map_componentclass_plm_aliases` is the writer). Reads the raw string
+    off the alias node's own `P_COMPONENT_CLASS` literal, not off the
+    node's URI-safe encoding, so a class containing a literal underscore
+    still resolves correctly."""
+    assert_rule_engine_did_not_read_oracle({v.GRAPH_REFDATA})
+    result: dict = {}
+    for q in ds.triples(p=URIRef(v.P_ALIAS_OF), graph=v.GRAPH_REFDATA):
+        labels = list(ds.triples(s=q.s, p=URIRef(v.P_COMPONENT_CLASS), graph=v.GRAPH_REFDATA))
+        if labels:
+            result[labels[0].o.toPython()] = str(q.o)
+    return result
+
+
+def resolve_rdl_uri(
+    component_class: Optional[str],
+    component_class_uri: Optional[str],
+    rds_plm_crosswalk: dict,
+    componentclass_aliases: dict,
+    boundary_roles: dict,
+) -> dict:
+    """§4.3.1's resolver: given one component's raw classification
+    signal(s), returns `{"rdl_uri", "rdl_match_type", "pending_review"}`
+    for `rdf_mapper.map_component`'s matching keyword arguments.
+
+    Format-scoped by construction, not by an explicit format flag — a
+    DEXPI component carries `component_class_uri` and takes the URI
+    bridge; a PostProc component never does (verified: zero RDS/posccaesar
+    URIs across a full real PostProc drawing, `ido_semantic_mapping_spec.md`
+    §4.1) and falls through to the label bridge automatically. The URI
+    bridge is tried first when both signals happen to be present — it is
+    the higher-confidence match.
+
+    `pending_review` is True only for a close/label match on a
+    boundary-forming class (§4.3.1, §4.5's review-gate discipline already
+    used for the oracle and for CV output) — an exact match, or a match on
+    a non-boundary class, never needs one. No lookup happens here for a
+    component with neither signal, or with no crosswalk/alias entry for
+    what it does carry — `rdl_uri` stays `None` and the caller's existing
+    `rdlUriPending` marker fires exactly as it did before this function
+    existed."""
+    rdl_uri = None
+    match_type = None
+    if component_class_uri and component_class_uri in rds_plm_crosswalk:
+        rdl_uri, match_type = rds_plm_crosswalk[component_class_uri]
+    elif component_class and component_class in componentclass_aliases:
+        rdl_uri = componentclass_aliases[component_class]
+        match_type = "label"
+    pending_review = bool(
+        rdl_uri
+        and match_type in ("close", "label")
+        and component_class
+        and is_boundary_forming(component_class, boundary_roles)
+    )
+    return {"rdl_uri": rdl_uri, "rdl_match_type": match_type, "pending_review": pending_review}
+
+
+# --------------------------------------------------------------------------
 # Graph reads over graph:masterdata (component fluid, class, neighbours, flow)
 # --------------------------------------------------------------------------
 

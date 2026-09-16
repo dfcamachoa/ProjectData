@@ -105,6 +105,19 @@ class Doc:
         return e.get("ComponentClass") if e is not None else None
 
     @staticmethod
+    def ccu(e: Optional[ET.Element]) -> Optional[str]:
+        """The element's ComponentClassURI attribute — the native RDS…
+        reference-data URI DEXPI carries alongside ComponentClass, when the
+        export populates it (ido_semantic_mapping_spec.md §4.1, §5.2). Same
+        direct-attribute access pattern as `cc()` above, not a
+        GenericAttribute lookup — confirmed against real project data that
+        this attribute is present on real PipingComponent elements
+        (2026-09-11 real-drawing check: `"ComponentClassURI" in xml_text`
+        returned True on a real Bronze row). Returns None when absent —
+        exactly like `cc()` — never raises."""
+        return e.get("ComponentClassURI") if e is not None else None
+
+    @staticmethod
     def ga(e: Optional[ET.Element], name: str) -> Optional[str]:
         """First populated GenericAttribute value with this Name."""
         if e is None:

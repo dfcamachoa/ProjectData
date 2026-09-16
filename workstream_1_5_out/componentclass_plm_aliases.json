@@ -1,0 +1,23 @@
+[
+  {
+    "component_class": "ConcentricDiameterChange",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004101",
+    "plm_label": "Pipe Reducer",
+    "source": "spec-confirmed",
+    "note": "ido_semantic_mapping_spec.md \u00a74.6 -- 74 real Project-B items"
+  },
+  {
+    "component_class": "PipingNetworkBranch",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004103",
+    "plm_label": "Pipe Tee",
+    "source": "spec-confirmed",
+    "note": "ido_semantic_mapping_spec.md \u00a74.6 -- 30 real Project-B items"
+  },
+  {
+    "component_class": "Flange",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004099",
+    "plm_label": "Pipe Flange",
+    "source": "spec-confirmed",
+    "note": "ido_semantic_mapping_spec.md \u00a74.6 -- 48 real Project-B items"
+  }
+]

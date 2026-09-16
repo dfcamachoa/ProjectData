@@ -1,0 +1,797 @@
+[
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100001002",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000524"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100001005",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000386"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100001007",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000550"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100001009",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000698"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100001014",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000802"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004057",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000315"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004058",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000607"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004059",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000397"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004059",
+    "predicate": "close",
+    "object": "https://cdd.iec.ch/cdd/iec61360/iec61360.nsf/classes/0112-2---61360_4%23AAA013"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004061",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000007"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004062",
+    "predicate": "close",
+    "object": "https://cdd.iec.ch/cdd/iec61360/iec61360.nsf/classes/0112-2---61360_4%23AAA035"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004063",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000008"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004064",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000521"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004065",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000323"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004066",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000638"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004067",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000597"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004068",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000330"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004070",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000336"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004071",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000337"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004071",
+    "predicate": "close",
+    "object": "https://cdd.iec.ch/cdd/iec61360/iec61360.nsf/classes/0112-2---61360_4%23AAA017"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004072",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000340"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004074",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000310"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004075",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000010"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004076",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000532"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004077",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000389"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004078",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000638"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004079",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000023"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004080",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000664"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004081",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000348"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004081",
+    "predicate": "close",
+    "object": "https://cdd.iec.ch/cdd/iec61360/iec61360.nsf/classes/0112-2---61360_4%23AAA149"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004083",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000433"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004085",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000353"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004086",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000697"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004087",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000646"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004087",
+    "predicate": "close",
+    "object": "https://cdd.iec.ch/cdd/iec61987/iec61987.nsf/classes/0112-2---61987%23ABA803"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004088",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000024"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004090",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000495"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004092",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000008"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004094",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000179"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004095",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000496"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004096",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000497"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004101",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000946"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004102",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000504"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004103",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000499"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004104",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000443"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004105",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000360"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004105",
+    "predicate": "close",
+    "object": "https://cdd.iec.ch/cdd/iec61360/iec61360.nsf/classes/0112-2---61360_4%23AAA036"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004106",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000362"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004108",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000673"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004109",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000626"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004111",
+    "predicate": "close",
+    "object": "https://cdd.iec.ch/cdd/iec61360/iec61360.nsf/classes/0112-2---61360_4%23AAA089"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004112",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000588"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004113",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000365"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004113",
+    "predicate": "close",
+    "object": "https://cdd.iec.ch/cdd/iec61360/iec61360.nsf/classes/0112-2---61360_4%23AAA037"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004114",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000755"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004116",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000617"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004117",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000369"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004118",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000370"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004119",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000674"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004120",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000476"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004120",
+    "predicate": "close",
+    "object": "https://cdd.iec.ch/cdd/iec61987/iec61987.nsf/classes/0112-2---61987%23ABA835"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004122",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000362"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004123",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000661"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004123",
+    "predicate": "close",
+    "object": "https://cdd.iec.ch/cdd/iec61987/iec61987.nsf/classes/0112-2---61987%23ABA751"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004124",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000267"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004125",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000660"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004126",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000632"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004129",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000425"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004131",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000470"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005868",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000383"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005870",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000516"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005871",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000807"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005873",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000319"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005875",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000518"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005877",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000612"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005878",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000810"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005880",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000937"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005881",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000733"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005882",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000520"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005883",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000522"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005884",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000636"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005885",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000812"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005886",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000494"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005887",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000572"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005892",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000387"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005893",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000406"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005894",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000419"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005895",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000291"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005896",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000526"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005897",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000527"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005900",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000821"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005904",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000342"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005907",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000327"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005908",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000344"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005910",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000346"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005911",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000363"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005912",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000598"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005916",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000575"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005917",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000576"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005919",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000827"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005921",
+    "predicate": "close",
+    "object": "https://cdd.iec.ch/cdd/iec61987/iec61987.nsf/classes/0112-2---61987%23ABA761"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005923",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000075"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005924",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000432"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005925",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000533"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005927",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000534"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005929",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000838"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005930",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000535"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005931",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000536"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005933",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000840"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005934",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000841"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005935",
+    "predicate": "close",
+    "object": "https://cdd.iec.ch/cdd/iec61987/iec61987.nsf/classes/0112-2---61987%23ABE336"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005936",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000759"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005937",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000085"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005938",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000538"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005939",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000539"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005941",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000581"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005942",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000094"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005948",
+    "predicate": "close",
+    "object": "https://cdd.iec.ch/cdd/iec61987/iec61987.nsf/classes/0112-2---61987%23ABA703"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005949",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000601"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005950",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000116"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005952",
+    "predicate": "close",
+    "object": "https://cdd.iec.ch/cdd/iec61987/iec61987.nsf/classes/0112-2---61987%23ABD368"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005953",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000308"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005955",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000543"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005958",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000852"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005964",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000544"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005965",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000175"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005966",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000177"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005969",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000500"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005970",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000857"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005971",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000752"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005972",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000860"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005973",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000757"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005974",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000548"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005975",
+    "predicate": "close",
+    "object": "https://cdd.iec.ch/cdd/iec61987/iec61987.nsf/classes/0112-2---61987%23ABA652"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005977",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000754"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005978",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000549"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005980",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000551"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005981",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000862"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005983",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000552"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005984",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000864"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005986",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000466"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005987",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000313"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005988",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000554"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005990",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000867"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005991",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000868"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005993",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000506"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005994",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000869"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005995",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000873"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005997",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000371"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100006001",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000479"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100006004",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000349"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100006006",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000481"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100006007",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000604"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100006008",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000482"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100006009",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000483"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100006011",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000875"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100006012",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000491"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100006013",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000876"
+  },
+  {
+    "subject": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100006014",
+    "predicate": "close",
+    "object": "http://w3id.org/readi/rdl/CFIHOS-30000285"
+  }
+]

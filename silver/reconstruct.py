@@ -127,6 +127,13 @@ def reconstruct_document(
             components.append({
                 "component_id": c.id,
                 "component_class": c.cls,
+                # Native RDS… reference-data URI (ComponentClassURI on the
+                # source element) alongside `component_class` — DEXPI only;
+                # always None for bppidsys/PostProc components, which have no
+                # such field at all (ido_semantic_mapping_spec.md §4.1, §5.2).
+                # getattr(), not c.cls_uri, so this stays safe regardless of
+                # which adapter's Component dataclass produced `c`.
+                "component_class_uri": getattr(c, "cls_uri", None),
                 "component_name": getattr(c, "component_name", None),
                 "tag": c.tag,
                 "segment_id": c.seg_id,

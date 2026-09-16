@@ -1,0 +1,100 @@
+<?xml version="1.0"?>
+<!--
+  T.EN reference-data extension library - companion to, NOT a replacement
+  for or edit of, specs/semantics/equipment.rdf (the pinned, externally-owned
+  PCA PLM equipment library, owl:versionInfo tracked against real PCA
+  releases). See gold/vocab.py's module docstring for the TEN_RDL namespace
+  this file populates, and gold_layer_spec.md's Workstream 1.5 / Cause C
+  discussion for why this file exists at all.
+
+  When to add a class here, vs. use the existing crosswalk/alias mechanism:
+    - A real RDS/DEXPI code (or PostProc ComponentClass string) resolves,
+      even loosely, to an existing PCA PLM class -> that's a crosswalk
+      entry in rds_plm_crosswalk.json (match_type "close"), NOT a new class
+      here. Most of Cause C's real gap is this case.
+    - A real RDS/DEXPI code names a genuine physical/functional equipment
+      or component type the PCA PLM library (specs/semantics/equipment.rdf)
+      does not name precisely enough, confirmed by checking the real file
+      directly (the same discipline this project already applies before
+      calling anything "missing" from a reference library) -> that is what
+      belongs here, as a new class under TEN_RDL.
+    - A DEXPI drawing-continuation symbol, off-page connector, or other
+      non-physical artifact -> belongs in neither place. It is not a
+      component the PLM/RDL model classifies at all; use REJECT in
+      confirm_cause_c_review.py instead of minting a class for it here.
+
+  Namespace prefixes below are copied verbatim from the real equipment.rdf
+  so the two files stay stylistically interoperable (skos:closeMatch back
+  to a real RDS URI works exactly the same way here as it does there) -
+  most of them are unused in this file today and only carried over for that
+  consistency; trim ones you never use if that bothers you.
+
+  Status: one real class populated - SteamTrap (below), subclassed under
+  the real PCA Valve class (PCA_100004125, confirmed by David from his own
+  copy of equipment.rdf on 2026-09-15).
+-->
+<rdf:RDF xmlns="http://www.semanticweb.org/owl/owlapi/turtle#"
+     xml:base="http://www.semanticweb.org/owl/owlapi/turtle"
+     xmlns:owl="http://www.w3.org/2002/07/owl#"
+     xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+     xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+     xmlns:skos="http://www.w3.org/2004/02/skos/core#"
+     xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+     xmlns:lis="http://rds.posccaesar.org/ontology/lis14/rdl/"
+     xmlns:pca="http://data.posccaesar.org/rdl/"
+     xmlns:rdl="http://rds.posccaesar.org/ontology/plm/rdl/"
+     xmlns:ten="http://data.ten.com/rdl/">
+
+    <owl:Ontology rdf:about="http://data.ten.com/rdl/ont/equipment-extension">
+        <owl:versionInfo>0.3.0</owl:versionInfo>
+        <rdfs:comment>T.EN reference-data extension to the PCA PLM equipment
+library (specs/semantics/equipment.rdf). Project-owned; not a PCA-published
+ontology. See this file's own header comment and gold/vocab.py's TEN_RDL
+namespace documentation before adding classes.</rdfs:comment>
+    </owl:Ontology>
+
+    <!--
+      SteamTrap - first real class in this file (added per David's
+      decision; see claude/ten_rdl_extension_design.md).
+
+      Real evidence this is a genuine, established component class in this
+      project, not an invented one:
+        - silver/_recon/pidsys/refdata.py::_FALLBACK_BOUNDARY["trap"] =
+          {"SteamTrap"} - one of the four real boundary-role sets the
+          systemization walk reads.
+        - systemization_spec.md §5.7 - "The steam trap belongs to the
+          Steam system... The steam/condensate boundary is the first
+          flange downstream of the steam trap."
+        - data_specification.md §3.1 - "Steam Trap | Fitting /
+          boundary-forming | Missing from source class list - see note"
+          and the accompanying note: the validation drawing checked had no
+          component classified as a steam trap, and "recognising Steam
+          Trap as a class... is an open reference-data item."
+
+      PCA parent confirmed 2026-09-15: David checked his own full copy of
+      equipment.rdf and confirmed the real generic Valve class is
+      PCA_100004125 (rdl: namespace, http://rds.posccaesar.org/ontology/plm/rdl/).
+      SteamTrap is declared rdfs:subClassOf it below - a steam trap is a
+      real physical/functional class the PCA library does not name
+      precisely (no dedicated Steam Trap class exists there), but it is
+      still a valve-family device, so it is wired into the real PLM
+      hierarchy under its nearest real parent rather than left orphaned.
+    -->
+    <owl:Class rdf:about="http://data.ten.com/rdl/SteamTrap">
+        <rdfs:subClassOf rdf:resource="http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004125"/>
+        <rdfs:comment>A steam trap: the directional device that forms the
+boundary between a Steam system and its Condensate system
+(systemization_spec.md §5.7). Boundary role "trap" in the project's
+reference data. Subclassed under the real PCA Valve class (PCA_100004125)
+- confirmed by David from his own full copy of equipment.rdf on
+2026-09-15, since this environment could not fetch far enough into that
+file (246 classes) to confirm it independently.</rdfs:comment>
+        <rdfs:label>Steam Trap</rdfs:label>
+        <!-- Once you've confirmed the real DEXPI/PostProc RDS or
+             ComponentClassURI this corresponds to on real data, add it
+             here instead of (or alongside) a rds_plm_crosswalk.json entry:
+        <skos:closeMatch rdf:resource="http://sandbox.dexpi.org/rdl/SteamTrap"/>
+        -->
+    </owl:Class>
+
+</rdf:RDF>

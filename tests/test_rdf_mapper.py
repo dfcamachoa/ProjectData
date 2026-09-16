@@ -167,6 +167,98 @@ class TestRdfMapper(unittest.TestCase):
             ["CustomValveXYZ"],
         )
 
+    def test_resolved_rdl_uri_asserts_sameas_and_match_type_not_pending(self):
+        # §4.3.1 (risk #18): a caller that has already resolved a class to a
+        # real PLM URI passes it (plus its confidence) straight through --
+        # map_component itself performs no lookup, it only projects.
+        from gold import rdf_mapper
+        owl_same_as = URIRef("http://www.w3.org/2002/07/owl#sameAs")
+        ds = Dataset()
+        rdf_mapper.declare_ontology_skeleton(ds)
+        comp = {"component_id": "C-RESOLVED", "component_class": "GateValve", "tag": "GV-1"}
+        rdf_mapper.map_component(ds, comp, rdl_uri="http://example/PLM_GATEVALVE", rdl_match_type="exact")
+        domain_cls = URIRef(v.component_class_uri("GateValve"))
+        self.assertEqual(
+            [q.o.toPython() for q in ds.triples(s=domain_cls, p=owl_same_as, graph=v.GRAPH_MASTERDATA)],
+            ["http://example/PLM_GATEVALVE"],
+        )
+        self.assertEqual(
+            [q.o.toPython() for q in ds.triples(s=domain_cls, p=URIRef(v.P_RDL_MATCH_TYPE), graph=v.GRAPH_MASTERDATA)],
+            ["exact"],
+        )
+        # a resolved class never carries the pending marker at all
+        self.assertEqual(list(ds.triples(s=domain_cls, p=URIRef(v.P_RDL_URI_PENDING), graph=v.GRAPH_MASTERDATA)), [])
+        self.assertEqual(list(ds.triples(s=domain_cls, p=URIRef(v.P_PENDING_REVIEW), graph=v.GRAPH_MASTERDATA)), [])
+
+    def test_close_match_with_pending_review_flag(self):
+        from gold import rdf_mapper
+        ds = Dataset()
+        rdf_mapper.declare_ontology_skeleton(ds)
+        comp = {"component_id": "C-CLOSE", "component_class": "GateValve", "tag": "GV-2"}
+        rdf_mapper.map_component(
+            ds, comp, rdl_uri="http://example/PLM_GATEVALVE", rdl_match_type="close", pending_review=True,
+        )
+        domain_cls = URIRef(v.component_class_uri("GateValve"))
+        self.assertEqual(
+            [q.o.toPython() for q in ds.triples(s=domain_cls, p=URIRef(v.P_RDL_MATCH_TYPE), graph=v.GRAPH_MASTERDATA)],
+            ["close"],
+        )
+        self.assertEqual(
+            [q.o.toPython() for q in ds.triples(s=domain_cls, p=URIRef(v.P_PENDING_REVIEW), graph=v.GRAPH_MASTERDATA)],
+            [True],
+        )
+
+    def test_unresolved_class_still_gets_the_pending_marker_unchanged(self):
+        # Backward-compatibility check: calling map_component with none of
+        # the new kwargs must produce byte-for-byte the same RDF as before
+        # this feature existed.
+        from gold import rdf_mapper
+        ds = Dataset()
+        rdf_mapper.declare_ontology_skeleton(ds)
+        comp = {"component_id": "C-PENDING", "component_class": "GateValve", "tag": "GV-3"}
+        rdf_mapper.map_component(ds, comp)
+        domain_cls = URIRef(v.component_class_uri("GateValve"))
+        self.assertEqual(
+            [q.o.toPython() for q in ds.triples(s=domain_cls, p=URIRef(v.P_RDL_URI_PENDING), graph=v.GRAPH_MASTERDATA)],
+            [True],
+        )
+        self.assertEqual(list(ds.triples(s=domain_cls, p=URIRef(v.P_RDL_MATCH_TYPE), graph=v.GRAPH_MASTERDATA)), [])
+        self.assertEqual(list(ds.triples(s=domain_cls, p=URIRef(v.P_PENDING_REVIEW), graph=v.GRAPH_MASTERDATA)), [])
+
+    def test_map_rds_plm_crosswalk_asserts_skos_predicates(self):
+        from gold import rdf_mapper
+        ds = Dataset()
+        rdf_mapper.map_rds_plm_crosswalk(ds, [
+            {"rds_uri": "http://data.posccaesar.org/rdl/RDS1", "plm_uri": "http://example/PLM1", "match_type": "exact"},
+            {"rds_uri": "http://data.posccaesar.org/rdl/RDS2", "plm_uri": "http://example/PLM2", "match_type": "close"},
+        ])
+        exact = URIRef("http://www.w3.org/2004/02/skos/core#exactMatch")
+        close = URIRef("http://www.w3.org/2004/02/skos/core#closeMatch")
+        self.assertEqual(
+            [q.o.toPython() for q in ds.triples(s=URIRef("http://data.posccaesar.org/rdl/RDS1"), p=exact, graph=v.GRAPH_REFDATA)],
+            ["http://example/PLM1"],
+        )
+        self.assertEqual(
+            [q.o.toPython() for q in ds.triples(s=URIRef("http://data.posccaesar.org/rdl/RDS2"), p=close, graph=v.GRAPH_REFDATA)],
+            ["http://example/PLM2"],
+        )
+
+    def test_map_componentclass_plm_aliases_round_trips_the_raw_string(self):
+        from gold import rdf_mapper
+        ds = Dataset()
+        rdf_mapper.map_componentclass_plm_aliases(ds, [
+            {"component_class": "GateValve", "plm_uri": "http://example/PLM_GATEVALVE"},
+        ])
+        node = URIRef(v.component_class_alias_uri("GateValve"))
+        self.assertEqual(
+            [q.o.toPython() for q in ds.triples(s=node, p=URIRef(v.P_COMPONENT_CLASS), graph=v.GRAPH_REFDATA)],
+            ["GateValve"],
+        )
+        self.assertEqual(
+            [q.o.toPython() for q in ds.triples(s=node, p=URIRef(v.P_ALIAS_OF), graph=v.GRAPH_REFDATA)],
+            ["http://example/PLM_GATEVALVE"],
+        )
+
     def test_domain_class_is_subclass_of_piping_component_which_is_ido_physical_object(self):
         rdfs_sub = URIRef("http://www.w3.org/2000/01/rdf-schema#subClassOf")
         gate_valve = URIRef(v.component_class_uri("GateValve"))

@@ -51,6 +51,10 @@ class Component:
     in_raw_graph: bool = False
     inline_index: Optional[int] = None
     inline_count: Optional[int] = None
+    # Native RDS… reference-data URI DEXPI carries alongside `cls`
+    # (ComponentClassURI attribute — ido_semantic_mapping_spec.md §4.1, §5.2).
+    # Always None for bppidsys/PostProc components, which never carry one.
+    cls_uri: Optional[str] = None
 
 
 @dataclass
@@ -149,6 +153,7 @@ class Pipeline:
                 attrs=d.all_ga(e),
                 seg_tag=seg_tag,
                 seg_id=seg_id,
+                cls_uri=d.ccu(e),
             ))
         return out
 

@@ -99,7 +99,13 @@ def declare_ontology_skeleton(ds: Dataset) -> None:
     ds.add(U(v.C_UNCLASSIFIED_COMPONENT), RDFS_SUBCLASSOF, U(v.C_PIPING_COMPONENT), v.GRAPH_MASTERDATA)
 
 
-def map_component(ds: Dataset, comp: dict, rdl_uri: Optional[str] = None) -> None:
+def map_component(
+    ds: Dataset,
+    comp: dict,
+    rdl_uri: Optional[str] = None,
+    rdl_match_type: Optional[str] = None,
+    pending_review: bool = False,
+) -> None:
     """comp: silver_components-shaped dict — component_id, component_class,
     tag, segment_id, is_valve, drawing_number, ... (silver_layer_spec.md §4).
 
@@ -125,6 +131,18 @@ def map_component(ds: Dataset, comp: dict, rdl_uri: Optional[str] = None) -> Non
     domain class for one is not "pending RDL resolution", it is a
     classification that can never resolve. Both cases collapse onto the
     same `component_class = None`-shaped code path below.
+
+    As of 2026-09-11 (cont.), `rdl_uri` is joined by two more optional
+    resolution-metadata fields (§4.3.1, gold_layer_spec.md risk #18):
+    `rdl_match_type` ("exact"/"close"/"label" — how `rdl_uri` was reached,
+    asserted alongside the existing `owl:sameAs`) and `pending_review`
+    (True for a close/label match on a boundary-forming class, per §4.5's
+    review-gate discipline — never set for an exact match, and meaningless
+    when `rdl_uri` is absent). The caller (`gold_job.py`, via
+    `rules_reference.resolve_rdl_uri`) resolves these from the
+    `graph:refdata` crosswalks before calling this function — `map_component`
+    itself performs no lookup and stays a pure projection, exactly as
+    `rdl_uri` already worked before this addition.
     """
     RDFS_SUBCLASSOF = U("http://www.w3.org/2000/01/rdf-schema#subClassOf")
     RDF_TYPE = U("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
@@ -147,6 +165,10 @@ def map_component(ds: Dataset, comp: dict, rdl_uri: Optional[str] = None) -> Non
     if component_class:
         if rdl_uri:
             ds.add(domain_cls, U("http://www.w3.org/2002/07/owl#sameAs"), U(rdl_uri), v.GRAPH_MASTERDATA)
+            if rdl_match_type:
+                ds.add(domain_cls, U(v.P_RDL_MATCH_TYPE), L(rdl_match_type), v.GRAPH_MASTERDATA)
+            if pending_review:
+                ds.add(domain_cls, U(v.P_PENDING_REVIEW), L(True), v.GRAPH_MASTERDATA)
         else:
             # honest placeholder — the class awaits RDL resolution, not asserted as final
             ds.add(domain_cls, U(v.P_RDL_URI_PENDING), L(True), v.GRAPH_MASTERDATA)
@@ -391,6 +413,35 @@ def map_boundary_sets(ds: Dataset, boundary_rows: Iterable[dict]) -> None:
         cls = U(v.component_class_uri(row["component_class"]))
         role = U(v.uri(v.PIDSYS + "boundary_role/", row["role"]))
         ds.add(role, U(v.P_BOUNDARY_MEMBER), cls, v.GRAPH_REFDATA)
+
+
+def map_rds_plm_crosswalk(ds: Dataset, crosswalk_rows: Iterable[dict]) -> None:
+    """§4.3.1's DEXPI URI bridge: RDS→PLM crosswalk rows -> graph:refdata
+    SKOS mapping triples. Each row: {"rds_uri", "plm_uri", "match_type"}
+    with `match_type` one of "exact"/"close" — mirrors the real PLM
+    library's own published `skos:exactMatch`/`closeMatch` predicates
+    (`ido_semantic_mapping_spec.md` §4.2: 345 closeMatch, 22 relatedMatch,
+    1 exactMatch across 208 RDS codes) rather than inventing new
+    vocabulary. `rules_reference.load_rds_plm_crosswalk` is the reader."""
+    for row in crosswalk_rows:
+        pred = v.SKOS_EXACT_MATCH if row["match_type"] == "exact" else v.SKOS_CLOSE_MATCH
+        ds.add(U(row["rds_uri"]), U(pred), U(row["plm_uri"]), v.GRAPH_REFDATA)
+
+
+def map_componentclass_plm_aliases(ds: Dataset, alias_rows: Iterable[dict]) -> None:
+    """§4.3.1's PostProc label bridge: PostProc carries no RDL/RDS URIs at
+    all (verified — zero across a full real drawing, `ido_semantic_mapping_
+    spec.md` §4.1), so there is no URI to crosswalk; a curated
+    ComponentClass string -> PLM URI alias is the only bridge. Each row:
+    {"component_class", "plm_uri"}. The raw string is asserted as a
+    `P_COMPONENT_CLASS` literal on the alias node (not reconstructed from
+    the node's URI-safe encoding) so a class containing a literal
+    underscore still round-trips correctly. `rules_reference.
+    load_componentclass_plm_aliases` is the reader."""
+    for row in alias_rows:
+        node = U(v.component_class_alias_uri(row["component_class"]))
+        ds.add(node, U(v.P_COMPONENT_CLASS), L(row["component_class"]), v.GRAPH_REFDATA)
+        ds.add(node, U(v.P_ALIAS_OF), U(row["plm_uri"]), v.GRAPH_REFDATA)
 
 
 def map_system_result(ds: Dataset, system: dict, rule_name: str) -> None:

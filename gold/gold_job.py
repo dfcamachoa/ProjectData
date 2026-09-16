@@ -37,11 +37,11 @@ Bronze/Silver's real jobs already are there.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Iterable, Optional
 
-from . import rdf_mapper
+from . import rdf_mapper, rules_reference
 from .oracle_guard import assert_oracle_confined
 from .rdf_model import Dataset
 from .silver_cdc import CdcAnomaly, SilverCdcEvent, apply_silver_cdc_events_tolerant
@@ -60,6 +60,14 @@ class GoldInputs:
     fluid_catalogue: list  # refdata Fluid sheet rows
     boundary_rows: list    # refdata Boundary sheet rows
     drawing_lineage: dict  # {drawing_number: {"ingested_at":..., "drawing_revision_date":...}}
+    # §4.3.1 RDL/PLM resolution bridges (gold_layer_spec.md risk #18) —
+    # default to empty so every pre-existing caller/fixture is unaffected:
+    # with no crosswalk rows, resolve_rdl_uri always returns rdl_uri=None
+    # and map_component's existing rdlUriPending path fires exactly as
+    # before this addition. Workstream 1.5 is what actually populates these
+    # for a real run — the crosswalk assets themselves don't exist yet.
+    rds_plm_crosswalk: list = field(default_factory=list)          # DEXPI URI-bridge rows
+    componentclass_plm_aliases: list = field(default_factory=list)  # PostProc label-bridge rows
 
 
 def build_rdf_dataset(inputs: GoldInputs) -> Dataset:
@@ -72,6 +80,15 @@ def build_rdf_dataset(inputs: GoldInputs) -> Dataset:
     rdf_mapper.declare_ontology_skeleton(ds)
     rdf_mapper.map_fluid_catalogue(ds, inputs.fluid_catalogue)
     rdf_mapper.map_boundary_sets(ds, inputs.boundary_rows)
+    rdf_mapper.map_rds_plm_crosswalk(ds, inputs.rds_plm_crosswalk)
+    rdf_mapper.map_componentclass_plm_aliases(ds, inputs.componentclass_plm_aliases)
+    # §4.3.1 RDL/PLM resolution (gold_layer_spec.md risk #18): loaded once
+    # per run from the refdata just asserted above, not re-queried per
+    # component -- mirrors load_fluid_catalogue/load_boundary_roles's own
+    # "load once, look up many times" shape.
+    rds_plm_crosswalk = rules_reference.load_rds_plm_crosswalk(ds)
+    componentclass_aliases = rules_reference.load_componentclass_plm_aliases(ds)
+    boundary_roles = rules_reference.load_boundary_roles(ds)
     # Harvest real classification off the Equipment-kind component duplicate
     # BEFORE skipping it, below: silver/reconstruct.py's silver_equipment row
     # always carries equipment_class=None ("class enrichment: later"), but
@@ -101,7 +118,16 @@ def build_rdf_dataset(inputs: GoldInputs) -> Dataset:
             # follows for this same case -- prefer that function for a real
             # orchestration run.
             continue
-        rdf_mapper.map_component(ds, comp)
+        resolution = rules_reference.resolve_rdl_uri(
+            comp.get("component_class"), comp.get("component_class_uri"),
+            rds_plm_crosswalk, componentclass_aliases, boundary_roles,
+        )
+        rdf_mapper.map_component(
+            ds, comp,
+            rdl_uri=resolution["rdl_uri"],
+            rdl_match_type=resolution["rdl_match_type"],
+            pending_review=resolution["pending_review"],
+        )
     for seg in inputs.segments:
         rdf_mapper.map_segment(ds, seg)
     for eq in inputs.equipment:
@@ -164,6 +190,8 @@ def build_rdf_dataset_from_gold_objects(
     boundary_rows: list,        # refdata Boundary sheet rows
     as_of_valid: Optional[date] = None,
     as_of_tx: Optional[datetime] = None,
+    rds_plm_crosswalk: Optional[list] = None,          # §4.3.1 DEXPI URI-bridge rows (risk #18)
+    componentclass_plm_aliases: Optional[list] = None,  # §4.3.1 PostProc label-bridge rows
 ) -> "tuple[Dataset, list[str], list[str]]":
     """Stage-3 projection sourced from the bi-temporal `gold_objects` table
     (via `temporal.current_truth`), not raw Silver rows — the design
@@ -224,11 +252,23 @@ def build_rdf_dataset_from_gold_objects(
     C_UNCLASSIFIED_COMPONENT` (`rdf_mapper.map_component`'s own fallback) is
     reserved for a genuinely unclassified NON-Equipment component, should
     real data turn one up.
+
+    `rds_plm_crosswalk`/`componentclass_plm_aliases` (both optional, default
+    `None` -> treated as empty) are §4.3.1's RDL/PLM resolution bridges
+    (gold_layer_spec.md risk #18) — with none supplied, every component's
+    `rdlUriPending` marker fires exactly as it did before this parameter
+    pair existed; the crosswalk assets themselves (Workstream 1.5) don't
+    exist yet.
     """
     ds = Dataset()
     rdf_mapper.declare_ontology_skeleton(ds)
     rdf_mapper.map_fluid_catalogue(ds, fluid_catalogue)
     rdf_mapper.map_boundary_sets(ds, boundary_rows)
+    rdf_mapper.map_rds_plm_crosswalk(ds, rds_plm_crosswalk or [])
+    rdf_mapper.map_componentclass_plm_aliases(ds, componentclass_plm_aliases or [])
+    rds_plm_crosswalk_index = rules_reference.load_rds_plm_crosswalk(ds)
+    componentclass_aliases_index = rules_reference.load_componentclass_plm_aliases(ds)
+    boundary_roles = rules_reference.load_boundary_roles(ds)
 
     # Current-truth rows per kind, computed once up front (rather than inline
     # in the loop below) so the Equipment-classification harvest below can
@@ -263,7 +303,25 @@ def build_rdf_dataset_from_gold_objects(
                 harvested = equipment_class_by_tag.get(mapper_dict.get("tag"))
                 if harvested:
                     mapper_dict["equipment_class"] = harvested
-            mapper_fn(ds, mapper_dict)
+            if kind == "component":
+                # §4.3.1 (risk #18): resolve rdlUriPending via the two
+                # format-scoped bridges before mapping -- see
+                # rules_reference.resolve_rdl_uri's own docstring for why
+                # this is safe to call unconditionally (no crosswalk rows
+                # supplied -> always falls through to the pre-existing
+                # rdlUriPending path, unchanged).
+                resolution = rules_reference.resolve_rdl_uri(
+                    mapper_dict.get("component_class"), mapper_dict.get("component_class_uri"),
+                    rds_plm_crosswalk_index, componentclass_aliases_index, boundary_roles,
+                )
+                mapper_fn(
+                    ds, mapper_dict,
+                    rdl_uri=resolution["rdl_uri"],
+                    rdl_match_type=resolution["rdl_match_type"],
+                    pending_review=resolution["pending_review"],
+                )
+            else:
+                mapper_fn(ds, mapper_dict)
 
     lines_without_piece_detail = []
     line_rows = current_truth(gold_rows_by_kind.get("line", []), as_of_valid=as_of_valid, as_of_tx=as_of_tx)

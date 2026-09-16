@@ -1,0 +1,134 @@
+[
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS900885151",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100001011",
+    "match_type": "related",
+    "plm_label": "Transport Device"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS7906727",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004060",
+    "match_type": "related",
+    "plm_label": "Barrier"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS485369",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004061",
+    "match_type": "related",
+    "plm_label": "Cabinet"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS286244",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004063",
+    "match_type": "related",
+    "plm_label": "Caisson"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS430379",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004070",
+    "match_type": "related",
+    "plm_label": "Electric Actuator"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS7160353",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004074",
+    "match_type": "related",
+    "plm_label": "Electrical Equipment"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS415169",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004076",
+    "match_type": "related",
+    "plm_label": "Fan"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS1027742141",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004121",
+    "match_type": "related",
+    "plm_label": "Terminal - Port"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS477044",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004129",
+    "match_type": "related",
+    "plm_label": "Flame Detector"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS429029",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005879",
+    "match_type": "related",
+    "plm_label": "Cable Gland"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS6232284",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005880",
+    "match_type": "related",
+    "plm_label": "Cable Tray"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS778284581",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005889",
+    "match_type": "related",
+    "plm_label": "Conductor"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS462509",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005898",
+    "match_type": "related",
+    "plm_label": "Differential Pressure Flow Meter"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS204074",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005915",
+    "match_type": "related",
+    "plm_label": "Fastener"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS1049412291",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005932",
+    "match_type": "related",
+    "plm_label": "Generator"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS13068275",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005963",
+    "match_type": "related",
+    "plm_label": "Penetration"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS275399",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005969",
+    "match_type": "related",
+    "plm_label": "Pipeline"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS7208513",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005979",
+    "match_type": "related",
+    "plm_label": "Pump Skid"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS414922451",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005985",
+    "match_type": "related",
+    "plm_label": "Rotating Equipment"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS203624",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005987",
+    "match_type": "related",
+    "plm_label": "Safety Equipment"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS4316259670",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005992",
+    "match_type": "related",
+    "plm_label": "Static Equipment"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS1398471041",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005998",
+    "match_type": "related",
+    "plm_label": "Temperature Class Rated Artefact"
+  }
+]

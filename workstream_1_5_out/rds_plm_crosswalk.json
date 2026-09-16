@@ -1,0 +1,1124 @@
+[
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS422594",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100001001",
+    "match_type": "exact",
+    "plm_label": "Artefact"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS14286497",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100001002",
+    "match_type": "close",
+    "plm_label": "Compressor"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS278774",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100001005",
+    "match_type": "close",
+    "plm_label": "Cooler"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS414629",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100001013",
+    "match_type": "close",
+    "plm_label": "Three-Phase-Separator"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS779695261",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100001014",
+    "match_type": "close",
+    "plm_label": "Absorber"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS779711741",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004057",
+    "match_type": "close",
+    "plm_label": "Accumulator"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS418769",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004058",
+    "match_type": "close",
+    "plm_label": "Actuator"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS5788403",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004059",
+    "match_type": "close",
+    "plm_label": "Antenna"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS416834",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004064",
+    "match_type": "close",
+    "plm_label": "Centrifugal Pump"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS463994",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004065",
+    "match_type": "close",
+    "plm_label": "Circuit-Breaker"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS297539",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004066",
+    "match_type": "close",
+    "plm_label": "Control Valve"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS5800251",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004067",
+    "match_type": "close",
+    "plm_label": "Crane"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS464174",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004068",
+    "match_type": "close",
+    "plm_label": "Distribution Board"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS475514",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004069",
+    "match_type": "close",
+    "plm_label": "Duct"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS478124",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004071",
+    "match_type": "close",
+    "plm_label": "Electric Battery"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS415124",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004072",
+    "match_type": "close",
+    "plm_label": "Electric Motor"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS997405351",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004075",
+    "match_type": "close",
+    "plm_label": "Enclosure"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS446129",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004077",
+    "match_type": "close",
+    "plm_label": "Flare Tip"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS302354",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004078",
+    "match_type": "close",
+    "plm_label": "Flow Control Valve"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS302624",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004079",
+    "match_type": "close",
+    "plm_label": "Flow Element"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS7208926",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004080",
+    "match_type": "close",
+    "plm_label": "Flow Orifice"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS875024",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004081",
+    "match_type": "close",
+    "plm_label": "Fuse"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS5775946",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004082",
+    "match_type": "close",
+    "plm_label": "Gas Bottle"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS430154",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004083",
+    "match_type": "close",
+    "plm_label": "Hydraulic Actuator"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS869219",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004085",
+    "match_type": "close",
+    "plm_label": "Junction Box"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS5785737",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004086",
+    "match_type": "close",
+    "plm_label": "Knock Out Drum"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS418544",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004087",
+    "match_type": "close",
+    "plm_label": "Level Transmitter"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS1325252931",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004088",
+    "match_type": "close",
+    "plm_label": "Lifting Device"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS415214",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004090",
+    "match_type": "close",
+    "plm_label": "Nozzle"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS11141905",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004091",
+    "match_type": "close",
+    "plm_label": "On-Off Valve"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS486179",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004093",
+    "match_type": "close",
+    "plm_label": "Pedestal Crane"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS13027840",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004094",
+    "match_type": "close",
+    "plm_label": "Pig Trap"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS421199",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004095",
+    "match_type": "close",
+    "plm_label": "Pipe"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS670904",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004096",
+    "match_type": "close",
+    "plm_label": "Pipe Bend"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS674864",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004097",
+    "match_type": "close",
+    "plm_label": "Pipe Elbow"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS225809",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004098",
+    "match_type": "close",
+    "plm_label": "Pipe Fitting"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS418589",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004099",
+    "match_type": "close",
+    "plm_label": "Pipe Flange"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS421874",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004100",
+    "match_type": "close",
+    "plm_label": "Pipe Olet"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS416294",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004101",
+    "match_type": "close",
+    "plm_label": "Pipe Reducer"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS13029000",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004102",
+    "match_type": "close",
+    "plm_label": "Pipe Spool"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS427724",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004103",
+    "match_type": "close",
+    "plm_label": "Pipe Tee"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS430334",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004104",
+    "match_type": "close",
+    "plm_label": "Pneumatic Actuator"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS5757040",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004105",
+    "match_type": "close",
+    "plm_label": "Power Cable"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS877814",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004106",
+    "match_type": "close",
+    "plm_label": "Power Transformer"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS11142085",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004107",
+    "match_type": "close",
+    "plm_label": "Pressure Control Valve"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS462104",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004108",
+    "match_type": "close",
+    "plm_label": "Pressure Element"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS7135931",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004109",
+    "match_type": "close",
+    "plm_label": "Radar"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS416699",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004110",
+    "match_type": "close",
+    "plm_label": "Relief Valve"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS860174",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004111",
+    "match_type": "close",
+    "plm_label": "Resistor"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS414764",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004112",
+    "match_type": "close",
+    "plm_label": "Scrubber"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS5757130",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004113",
+    "match_type": "close",
+    "plm_label": "Signal Cable"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS283589",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004114",
+    "match_type": "close",
+    "plm_label": "Skid"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS7208513",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004115",
+    "match_type": "close",
+    "plm_label": "Skid Assembly"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS475334",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004116",
+    "match_type": "close",
+    "plm_label": "Switch"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS464129",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004117",
+    "match_type": "close",
+    "plm_label": "Switchboard"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS464084",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004118",
+    "match_type": "close",
+    "plm_label": "Switchgear"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS445454",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004119",
+    "match_type": "close",
+    "plm_label": "Temperature Element"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS418004",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004120",
+    "match_type": "close",
+    "plm_label": "Temperature Transmitter"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS643994",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004122",
+    "match_type": "close",
+    "plm_label": "Transformer"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS267929",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004123",
+    "match_type": "close",
+    "plm_label": "Transmitter"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS13173105",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004124",
+    "match_type": "close",
+    "plm_label": "Umbilical"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS292589",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004125",
+    "match_type": "close",
+    "plm_label": "Valve"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS284714",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004126",
+    "match_type": "close",
+    "plm_label": "Wall"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS419084",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004127",
+    "match_type": "close",
+    "plm_label": "Shell And Tube Heat Exchanger"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS441674",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004128",
+    "match_type": "close",
+    "plm_label": "Plate And Frame Heat Exchanger"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS476999",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100004131",
+    "match_type": "close",
+    "plm_label": "Smoke Detector"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS14072296",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005868",
+    "match_type": "close",
+    "plm_label": "Air Cooled Heat Exchanger"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS292949",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005869",
+    "match_type": "close",
+    "plm_label": "Atmospheric Tank"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS417239",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005870",
+    "match_type": "close",
+    "plm_label": "Axial Compressor"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS416654",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005871",
+    "match_type": "close",
+    "plm_label": "Ball Valve"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS422369",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005872",
+    "match_type": "close",
+    "plm_label": "Bath Tub Strainer"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS874934",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005873",
+    "match_type": "close",
+    "plm_label": "Battery Charger"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS414719",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005874",
+    "match_type": "close",
+    "plm_label": "Blind Flange"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS417149",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005875",
+    "match_type": "close",
+    "plm_label": "Blower"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS7190114",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005876",
+    "match_type": "close",
+    "plm_label": "Bolt"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS869039",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005877",
+    "match_type": "close",
+    "plm_label": "Bus Duct"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS416609",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005878",
+    "match_type": "close",
+    "plm_label": "Butterfly Valve"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS869129",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005881",
+    "match_type": "close",
+    "plm_label": "Capacitor"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS417194",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005882",
+    "match_type": "close",
+    "plm_label": "Centrifugal Compressor"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS420974",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005883",
+    "match_type": "close",
+    "plm_label": "Centrifuge"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS292229",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005884",
+    "match_type": "close",
+    "plm_label": "Check Valve"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS292364",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005885",
+    "match_type": "close",
+    "plm_label": "Choke Valve"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS16663020",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005886",
+    "match_type": "close",
+    "plm_label": "Christmas Tree"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS297044",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005887",
+    "match_type": "close",
+    "plm_label": "Coalescer"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS13048460",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005891",
+    "match_type": "close",
+    "plm_label": "Converter"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS14072341",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005892",
+    "match_type": "close",
+    "plm_label": "Cooling Tower"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS613394",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005893",
+    "match_type": "close",
+    "plm_label": "Coriolis Mass Flow Meter"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS9683882",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005894",
+    "match_type": "close",
+    "plm_label": "Coupling"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS1048579671",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005895",
+    "match_type": "close",
+    "plm_label": "Damper"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS400026131",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005896",
+    "match_type": "close",
+    "plm_label": "Diaphragm Pump"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS421154",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005897",
+    "match_type": "close",
+    "plm_label": "Diesel Engine"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS6589955",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005899",
+    "match_type": "close",
+    "plm_label": "Display"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS4316635584",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005900",
+    "match_type": "close",
+    "plm_label": "Distillation Column"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS5785874",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005901",
+    "match_type": "close",
+    "plm_label": "Drum"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS444329",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005904",
+    "match_type": "close",
+    "plm_label": "Electric Heating Element"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS1295560811",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005907",
+    "match_type": "close",
+    "plm_label": "Electrical Control Panel"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS873134",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005908",
+    "match_type": "close",
+    "plm_label": "Electrical Socket"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS1009664",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005909",
+    "match_type": "close",
+    "plm_label": "Electromagnetic Flow Meter"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS952289",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005910",
+    "match_type": "close",
+    "plm_label": "Electronic Power Inverter"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS952244",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005911",
+    "match_type": "close",
+    "plm_label": "Electronic Power Rectifier"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS5792527",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005912",
+    "match_type": "close",
+    "plm_label": "Elevator"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS7064679",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005913",
+    "match_type": "close",
+    "plm_label": "Escape Chute"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS1090799",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005914",
+    "match_type": "close",
+    "plm_label": "Ex Rated Artefact"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS300689",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005916",
+    "match_type": "close",
+    "plm_label": "Filter"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS954134",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005917",
+    "match_type": "close",
+    "plm_label": "Filter Cartridge"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS444779",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005919",
+    "match_type": "close",
+    "plm_label": "Finned Tube Heat Exchanger"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS417464",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005920",
+    "match_type": "close",
+    "plm_label": "Flow Meter"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS880154",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005921",
+    "match_type": "close",
+    "plm_label": "Flow Transmitter"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS278819",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005922",
+    "match_type": "close",
+    "plm_label": "Fluid Heater"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS477134",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005924",
+    "match_type": "close",
+    "plm_label": "Gas Detector"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS433934",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005925",
+    "match_type": "close",
+    "plm_label": "Gas Engine"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS820799",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005927",
+    "match_type": "close",
+    "plm_label": "Gas Turbine"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS415394",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005928",
+    "match_type": "close",
+    "plm_label": "Gasket"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS416519",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005929",
+    "match_type": "close",
+    "plm_label": "Gate Valve"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS889514",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005930",
+    "match_type": "close",
+    "plm_label": "Gear Box"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS433979",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005931",
+    "match_type": "close",
+    "plm_label": "Gear Pump"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS416204",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005933",
+    "match_type": "close",
+    "plm_label": "Globe Valve"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS16042131",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005934",
+    "match_type": "close",
+    "plm_label": "Gravity Separator"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS477089",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005935",
+    "match_type": "close",
+    "plm_label": "Heat Detector"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS304334",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005936",
+    "match_type": "close",
+    "plm_label": "Hopper"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS302174",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005937",
+    "match_type": "close",
+    "plm_label": "Hose"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS5767285",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005938",
+    "match_type": "close",
+    "plm_label": "Hydraulic Cylinder"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS1090214",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005939",
+    "match_type": "close",
+    "plm_label": "Hydraulic Motor"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS43167561303",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005941",
+    "match_type": "close",
+    "plm_label": "Hydro Cyclone"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS672897771",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005942",
+    "match_type": "close",
+    "plm_label": "Ignitor"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS418499",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005943",
+    "match_type": "close",
+    "plm_label": "Indicator"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS869174",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005944",
+    "match_type": "close",
+    "plm_label": "Inductor"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS1008224",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005945",
+    "match_type": "close",
+    "plm_label": "Ingress Protection Rated Artefact"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS897278051",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005946",
+    "match_type": "close",
+    "plm_label": "Inlet"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS208529",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005947",
+    "match_type": "close",
+    "plm_label": "Instrumentation And Control Equipment"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS316754",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005948",
+    "match_type": "close",
+    "plm_label": "Level Switch"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS11525462",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005949",
+    "match_type": "close",
+    "plm_label": "Life Boat"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS13601560",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005950",
+    "match_type": "close",
+    "plm_label": "Life Raft"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS418814",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005952",
+    "match_type": "close",
+    "plm_label": "Limit Switch"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS903171211",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005953",
+    "match_type": "close",
+    "plm_label": "Manifold"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS306449",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005955",
+    "match_type": "close",
+    "plm_label": "Mixer"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS1324967491",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005956",
+    "match_type": "close",
+    "plm_label": "Mobile Crane"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS1066976910",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005957",
+    "match_type": "close",
+    "plm_label": "Monorail Crane"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS421064",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005958",
+    "match_type": "close",
+    "plm_label": "Needle Valve"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS420524",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005959",
+    "match_type": "close",
+    "plm_label": "Nut"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS897286461",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005961",
+    "match_type": "close",
+    "plm_label": "Outlet"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS1066969820",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005962",
+    "match_type": "close",
+    "plm_label": "Overhead Crane"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS435149",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005964",
+    "match_type": "close",
+    "plm_label": "Petrol Engine"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS414899",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005965",
+    "match_type": "close",
+    "plm_label": "Pig Launcher"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS414854",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005966",
+    "match_type": "close",
+    "plm_label": "Pig Receiver"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS421649",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005967",
+    "match_type": "close",
+    "plm_label": "Pipe Cap"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS7606704",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005968",
+    "match_type": "close",
+    "plm_label": "Pipe Pig"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS645794",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005970",
+    "match_type": "close",
+    "plm_label": "Piston Check Valve"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS13971120",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005971",
+    "match_type": "close",
+    "plm_label": "Plate Heat Exchanger"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS421109",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005972",
+    "match_type": "close",
+    "plm_label": "Plug Valve"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS5767025",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005973",
+    "match_type": "close",
+    "plm_label": "Pneumatic Cylinder"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS812294",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005974",
+    "match_type": "close",
+    "plm_label": "Pneumatic Motor"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS416159",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005975",
+    "match_type": "close",
+    "plm_label": "Pressure Gauge"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS427229",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005976",
+    "match_type": "close",
+    "plm_label": "Pressure Vessel"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS11015765",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005977",
+    "match_type": "close",
+    "plm_label": "Printed Circuit Heat Exchanger"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS309509",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005978",
+    "match_type": "close",
+    "plm_label": "Pulsation Dampner"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS417284",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005980",
+    "match_type": "close",
+    "plm_label": "Reciprocating Compressor"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS416969",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005981",
+    "match_type": "close",
+    "plm_label": "Reciprocating Pump"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS414809",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005982",
+    "match_type": "close",
+    "plm_label": "Riser"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS435374",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005983",
+    "match_type": "close",
+    "plm_label": "Rotary Compressor"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS420749",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005984",
+    "match_type": "close",
+    "plm_label": "Rotary Pump"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS8372601",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005986",
+    "match_type": "close",
+    "plm_label": "Rupture Disc"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS432809",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005988",
+    "match_type": "close",
+    "plm_label": "Screw Pump"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS431279",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005989",
+    "match_type": "close",
+    "plm_label": "Solenoid Valve"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS443924",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005990",
+    "match_type": "close",
+    "plm_label": "Spiral Tube Heat Exchanger"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS422504",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005993",
+    "match_type": "close",
+    "plm_label": "Strainer"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS283949",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005994",
+    "match_type": "close",
+    "plm_label": "Stripper Column"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS610424",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005995",
+    "match_type": "close",
+    "plm_label": "Swing Check Valve"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS1009754",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005996",
+    "match_type": "close",
+    "plm_label": "Swirl Flow Meter"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS5779644",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005997",
+    "match_type": "close",
+    "plm_label": "Telephone"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS965204",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005999",
+    "match_type": "close",
+    "plm_label": "Terminal"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS459584",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100006000",
+    "match_type": "close",
+    "plm_label": "Terminal Block"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS418049",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100006001",
+    "match_type": "close",
+    "plm_label": "Thermowell"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS422234",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100006002",
+    "match_type": "close",
+    "plm_label": "Top Hat Strainer"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS293039",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100006003",
+    "match_type": "close",
+    "plm_label": "Tote Tank"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS14069755",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100006004",
+    "match_type": "close",
+    "plm_label": "Trace Heating Cable"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS812024",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100006005",
+    "match_type": "close",
+    "plm_label": "Transducer"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS5801059",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100006006",
+    "match_type": "close",
+    "plm_label": "Transponder"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS11524067",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100006007",
+    "match_type": "close",
+    "plm_label": "Trolley"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS417914",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100006008",
+    "match_type": "close",
+    "plm_label": "Turbine Flow Meter"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS418139",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100006009",
+    "match_type": "close",
+    "plm_label": "Ultrasonic Flow Meter"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS874754",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100006010",
+    "match_type": "close",
+    "plm_label": "Ups Unit"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS431690821",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100006011",
+    "match_type": "close",
+    "plm_label": "Vacuum Column"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS418184",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100006012",
+    "match_type": "close",
+    "plm_label": "Vortex Flow Meter"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS6327600",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100006013",
+    "match_type": "close",
+    "plm_label": "Wafer Check Valve"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS5766125",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100006014",
+    "match_type": "close",
+    "plm_label": "Winch"
+  },
+  {
+    "rds_uri": "http://data.posccaesar.org/rdl/RDS422279",
+    "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100006015",
+    "match_type": "close",
+    "plm_label": "Y Strainer"
+  }
+]

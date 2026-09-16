@@ -1,0 +1,630 @@
+@prefix pidsys: <http://data.ten.com/ont/pidsys#> .
+@prefix ido:    <http://rds.posccaesar.org/ontology/lis14/rdl/> .
+@prefix owl:    <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:    <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:   <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:    <http://www.w3.org/2001/XMLSchema#> .
+@prefix skos:   <http://www.w3.org/2004/02/skos/core#> .
+
+#################################################################
+#  Workstream 2 — the pidsys: structural / pre-commissioning
+#  extension ontology (net-new, bounded per
+#  ido_semantic_mapping_spec.md §6.1)
+#
+#  Naming decision (2026-09-15): the spec drafts this vocabulary
+#  as "precomm:"; the real running code (gold/vocab.py,
+#  rdf_mapper.py, and data already pushed to live Fuseki) uses
+#  "pidsys:" for the identical set of terms. This file matches the
+#  code — an ontology describes what is emitted, so pidsys: is
+#  authoritative and ido_semantic_mapping_spec.md §6.1/§6.3 should
+#  be reconciled to pidsys:, not the reverse.
+#
+#  IDO-alignment discipline (Gold spec §4.3, risk #2): a term is
+#  anchored to IDO ONLY when verified present; otherwise it is
+#  project-owned under pidsys:, never fabricated.
+#
+#  IMPORT LAYER — PINNED (2026-09-16) to IDO/LIS-14 v4.2 (FDIS):
+#    prefix  ido: <http://rds.posccaesar.org/ontology/lis14/rdl/>
+#    imports      <http://rds.posccaesar.org/ontology/lis14/ont/core>
+#  Source file: LIS-14-for-FDIS.ttl (owl:versionIRI .../core/4.2,
+#  "4.2 FDIS proposal submitted April 2026", dcterms:modified
+#  2026-04-10). This SUPERSEDES the earlier plan to pin to the 2021
+#  RDL core: v4.2 is the current PCA artifact, same ontology IRI and
+#  same lis: term namespace, and every ido: term this file uses was
+#  audited against it directly (below). The 2023 WD (WD_IDO.pdf) is
+#  now only historical context; where 4.2 and the WD differ, 4.2 wins.
+#
+#  KEY 4.2 FACTS (audited from the file, not inferred):
+#    - PhysicalArtefact ⊑ PhysicalObject  — NOT ⊑ InanimatePhysicalObject.
+#      4.2 changed this deliberately ("to allow for artificially made
+#      organisms"). Our PipingComponent/Equipment ⊑ PhysicalArtefact
+#      still resolves to PhysicalObject, just not via InanimatePhysical.
+#    - Feature ⊑ PhysicalObject  — CONFIRMED (explicit). Nozzle/Node
+#      connectivity is legal.
+#    - System ⊑ FunctionalObject, and System is disjoint from NOTHING.
+#      The only PhysicalObject disjointness is the set
+#      {InformationObject, Location, Organization, PhysicalObject}.
+#      So functional-only PipingSegment/Line is permitted (not
+#      unsatisfiable), and Connection/OffPageConnector ⊑ InformationObject
+#      IS enforced against being physical.
+#    - FunctionalObject is NOT deprecated in 4.2 (full definition,
+#      ⊑ Object + hasFunction some Function). The deprecation we tracked
+#      earlier was 2023-WD-only; hasMember's no-explicit-range design is
+#      still correct, just no longer for deprecation reasons.
+#    - connectedTo: Symmetric, Domain/Range PhysicalObject;
+#      directlyConnectedTo ⊑ connectedTo, Symmetric.
+#    - hasFunctionalPart: ⊑ hasPart, Domain System, Range FunctionalObject.
+#    - hasFeature: ⊑ hasArrangedPart, Range Feature.
+#    - installedAs: does NOT exist in 4.2 — we use it in no axiom (prose
+#      only, already corrected), so no impact. The physical→functional
+#      link is hasFunction/realizedIn (both present in 4.2).
+#  Anchors used (audited against 4.2):
+#    - ido:PhysicalArtefact — the made physical items:
+#      pidsys:PipingComponent and pidsys:Equipment (4.2:
+#      PhysicalArtefact ⊑ PhysicalObject directly; a made physical
+#      object — e.g. a bolt, a pressure vessel). More specific than
+#      bare PhysicalObject and resolves to it directly.
+#    - ido:Feature — pidsys:ConnectionNode, a point/part on a
+#      component (WD: "a contiguous, non-separable part of a physical
+#      object"; examples "a flange face, ... a bolt threading").
+#      ido:Feature is a subclass of ido:PhysicalObject (confirmed
+#      2026-09-15), so a node is legally on the connectedTo graph.
+#    - ido:System — the grouping/output classes (ProcessUnit,
+#      StartUpPackage, InstrumentationLoop, CommissioningSystem) and
+#      PipingSegment/Line subclass it DIRECTLY, no intermediate root
+#      (WD: lis:System SubClassOf hasFunctionalPart some
+#      FunctionalObject; example "a pressure vessel, a crane, a
+#      pipeline").
+#    - ido:InformationObject — Connection and OffPageConnector (WD:
+#      "a pattern that is about something, concretized as at least
+#      one physical entity"; example "a P&ID diagram").
+#  Membership: pidsys:hasMember ⊑ ido:hasFunctionalPart (WD: Domain
+#  System, Range FunctionalObject). The physical→functional link is
+#  the FUNCTION-realization pattern (a functional individual
+#  hasFunction some Function; that Function, being a Potential, is
+#  realizedIn some Activity in which the physical object participates)
+#  — NOT ido:installedAs. NOTE (4.2): ido:installedAs does not exist in
+#  v4.2 at all; we use it in no axiom (an earlier draft wrongly cited
+#  it as the physical/functional bridge — corrected; the bridge is
+#  hasFunction/realizedIn, both present in 4.2).
+#  FUNCTIONALOBJECT STATUS (4.2): NOT deprecated — full definition,
+#  ⊑ Object + hasFunction some Function. (An earlier note tracked a
+#  `deprecated? true` flag; that was 2023-WD-only and does not hold in
+#  the pinned 4.2.) pidsys:hasMember still declares NO explicit range
+#  and inherits Range FunctionalObject from hasFunctionalPart — a
+#  clean-inheritance choice, so the property follows the core if the
+#  range ever changes; no longer a deprecation workaround.
+#
+#  CODE-DIVERGENCE FLAG: Gold spec §4.3 reports the running vocab.py
+#  asserts ONLY ido:PhysicalObject and routes systems through a
+#  project term. This file additionally uses ido:System,
+#  ido:InformationObject, ido:connectedTo/directlyConnectedTo, and
+#  the ido:hasFunctionalPart / hasFunction / realizedIn membership
+#  pattern (no explicit FunctionalObject pin — see DEPRECATION above). Until vocab.py/rdf_mapper.py are updated, the
+#  ontology is ahead of the emitted triples — a real reconciliation
+#  item, logged in the scoping note, not to be silently ignored.
+#################################################################
+
+<http://data.ten.com/ont/pidsys>
+    a owl:Ontology ;
+    rdfs:label "T.EN pre-commissioning systemization extension (pidsys)" ;
+    owl:versionInfo "0.2.0-draft (2026-09-16; pinned to IDO/LIS-14 v4.2 FDIS)" ;
+    rdfs:comment """Structural and relational vocabulary for the Automatic
+Pre-commissioning Systemization data product: a reified Connection, flow
+direction, the off-page connector, connection-node identity, the boundary
+role, and the grouping/output System classes. Deliberately small (per
+ido_semantic_mapping_spec.md §6.1); the hard content is the rule layer,
+which lives in SHACL/SPARQL/Jena over graph:refdata, not here. Anchors to
+the IDO terms ido:PhysicalObject, ido:System, and ido:InformationObject
+(term facts AUDITED against IDO/LIS-14 v4.2 FDIS, the pinned import — see
+the file header for the per-term results; satisfiability still owed in a
+reasoner run).
+ido:InformationObject is the parent of BOTH the reified Connection and the
+OffPageConnector (the latter a drawing symbol and a Connection ENDPOINT,
+Connection's sibling, not its subclass and not a PhysicalObject) — this the
+ontology ENFORCES, via the WD's PhysicalObject|InformationObject
+disjointness. PipingSegment and Line are ido:System ONLY — functional
+groupings (piperun-family) of components by shared characteristics
+(diameter, piping class, insulation). This is a MODELLING choice on 4D
+identity-basis grounds, NOT enforced: the WD does NOT declare System
+disjoint from PhysicalObject, so a dual-typed segment would be permitted-
+but-wrong. The physical pipe pieces are separate InanimatePhysicalObject
+individuals. The systemization walk traverses physical adjacency at the
+COMPONENT/PIECE level, so segments correctly stay off the physical
+connectivity graph. Connectivity reuses the native symmetric
+ido:connectedTo / ido:directlyConnectedTo (between physical pieces);
+membership (pidsys:hasMember ⊑ ido:hasFunctionalPart) reaches physical
+components through the FUNCTION-realization pattern (hasFunction /
+realizedIn), NOT ido:installedAs (which is the tag/serial relation). Only
+genuinely non-native terms are minted under pidsys: — the reified
+Connection and OffPageConnector classes, PipingSegment/Line, flowsTo (no
+directional IDO companion exists), node identity, the grouping/output
+classes, and the boundary role.""" ;
+    owl:imports <http://rds.posccaesar.org/ontology/lis14/ont/core> .
+
+#################################################################
+#  Anchor points (project-owned roots)
+#################################################################
+
+pidsys:PipingComponent
+    a owl:Class ;
+    rdfs:subClassOf ido:PhysicalArtefact ;
+    rdfs:label "Piping Component" ;
+    rdfs:comment """Root for every placed, genuinely PHYSICAL plant item
+mapped by map_component — a single made artifact you could weld or ship (a
+gate valve, a reducer, a flange). Anchored under ido:PhysicalArtefact
+(4.2: PhysicalArtefact ⊑ PhysicalObject directly — 4.2 deliberately does
+NOT place it under InanimatePhysicalObject, "to allow for artificially
+made organisms") rather than bare ido:PhysicalObject — a piping component
+is manufactured (made by humans), so PhysicalArtefact is the more
+specific, more accurate anchor, and it resolves to PhysicalObject
+directly. Real domain classes (GateValve, CheckValve,
+PipeReducer, ...) are asserted rdfs:subClassOf this at projection time; a
+class not yet resolved to a real RDL/PLM URI additionally carries
+pidsys:rdlUriPending true rather than a fabricated URI. NOTE:
+PipingSegment and Line are NOT rooted here — they are functional groupings
+(ido:System), not single artefacts.""" .
+
+pidsys:Equipment
+    a owl:Class ;
+    rdfs:subClassOf ido:PhysicalArtefact ;
+    rdfs:label "Equipment" ;
+    rdfs:comment """Separate physical hierarchy from PipingComponent, per
+Gold spec §4.4: map_equipment asserts a project-minted equipment class
+rdfs:subClassOf this, keeping equipment classification distinct from
+piping-component classification. Anchored under ido:PhysicalArtefact — a
+vessel, pump, or exchanger is a manufactured physical object; the WD's own
+PhysicalArtefact example list includes "a pressure vessel".""" .
+
+pidsys:Nozzle
+    a owl:Class ;
+    rdfs:subClassOf ido:Feature ;
+    rdfs:label "Nozzle" ;
+    rdfs:comment """A connection point on a Process Equipment (spec §2.9.1)
+— the flanged opening where a Piping Segment attaches to a vessel or
+column. Anchored under ido:Feature (WD: "a contiguous, non-separable part
+of a physical object"; examples "a flange face, the inside surface of a
+pump"), the same anchor as ConnectionNode: a nozzle is a point ON
+equipment, belonging to exactly one equipment item, not a made object in
+its own right, so it is NOT a PhysicalArtefact. Related to its parent by
+the native ido:featureOf (inverse of ido:hasFeature): Nozzle featureOf
+Equipment. Because ido:Feature is a subclass of ido:PhysicalObject
+(confirmed), a Nozzle is legally on the ido:connectedTo graph — which is
+essential: "nozzles are how equipment enters the connectivity graph"
+(§2.9.1), piping attaching node-to-node at the nozzle. Carries a
+mandatory nozzle tag and nominal diameter (§2.9.1); always tagged (a
+missing tag is a data-quality error). NB (§2.9): an Equipment element is
+kept only if tagged AND bearing at least one nozzle — nozzle-less shells
+are ghost equipment, flagged not silently dropped.
+
+NOTE: the functional 'tag' aspect of a nozzle (the designated role 'N1')
+is deliberately NOT modelled as a separate FunctionalObject — a
+FunctionalObject is not a PhysicalObject and so would leave the
+ido:connectedTo graph, which is exactly where a nozzle must sit. (This
+holds independent of FunctionalObject's status; note it is NOT deprecated
+in v4.2.) If the functional role is ever needed, attach ido:hasFunction
+some ido:Function to this Feature rather than re-typing the nozzle.""" .
+
+pidsys:PipingSegment
+    a owl:Class ;
+    rdfs:subClassOf ido:System ;
+    rdfs:label "Piping Segment" ;
+    rdfs:comment """A Piping Segment is a FUNCTIONAL grouping of piping
+components that share characteristics (nominal diameter, piping materials
+class, insulation purpose/thickness) — a piperun-family concept, which is
+strictly functional. Under ISO 15926's 4D approach a functional object has
+functional (not material) continuity as its basis for identity: the
+functional requirement (the 'slot') is not the material (the 'filler'), so
+the segment is the slot and the physical pipe pieces that realise it are
+separate InanimatePhysicalObject individuals.
+
+It is therefore modelled as ido:System ONLY — NOT dual-typed with
+ido:InanimatePhysicalObject and NOT physical. IMPORTANT precision (audited
+against IDO/LIS-14 v4.2 FDIS): this is a MODELLING choice on 4D
+identity-basis grounds, NOT an axiom the ontology enforces. v4.2's
+complete disjointness set is: {Dependent|Object|Temporal};
+{InformationObject|Location|Organization|PhysicalObject};
+{Activity|SpatiotemporalRegion|TemporalRegion}; plus pairwise
+Organism|(implied) and a few others — but System is disjoint from
+NOTHING, and PhysicalObject is NOT declared disjoint from System or
+FunctionalObject. So a dual-typed segment would be permitted-but-wrong,
+not unsatisfiable — the reasoner would accept it; the modeller must
+decline it. (Contrast pidsys:OffPageConnector/Connection under
+InformationObject, which the ontology DOES enforce against being physical,
+via the {InformationObject|...|PhysicalObject} disjoint set.)
+
+Connectivity consequence: the systemization walk (walk.py) traverses
+physical adjacency at the COMPONENT/PIECE level, not segment-to-segment, so
+the segment does not need to sit on the physical ido:connectedTo graph —
+and correctly does not, since connectivity holds between physical
+realizations. The segment groups those pieces via ido:hasFunctionalPart /
+ido:hasAssembledPart and carries the shared diameter/class/insulation
+attributes. map_line/map_segment (Gold spec §4.4) build this grouping over
+the piece-level physical nodes the walk actually uses.""" .
+
+pidsys:Line
+    a owl:Class ;
+    rdfs:subClassOf ido:System ;
+    rdfs:label "Line (Pipeline System)" ;
+    rdfs:comment """The functional grouping one level above PipingSegment
+(Gold spec §4.4's bi-temporal versioning unit): PipingSegment
+--functionalPartOf--> Line. This IS the master-data "Pipeline System"
+(§2.2) — the two are the same concept, so no separate pidsys:PipelineSystem
+class is minted; "Pipeline System" is the master-data name for this class.
+Same strict reading as PipingSegment — ido:System only, a functional
+grouping of segments by shared line-level characteristics, not a physical
+object. map_line aggregates each of
+fluid/unit/diameter/piping_materials_class/insulation as a tuple, since
+member pieces can disagree.
+
+Containment chain (spec): Document → Line (Pipeline System) → Subline
+(Sub Piping System, project B) → PipingSegment → PipingComponent. Each
+grouping level is ido:System; membership down the chain uses
+ido:functionalPartOf / ido:hasFunctionalPart.""" .
+
+pidsys:Subline
+    a owl:Class ;
+    rdfs:subClassOf ido:System ;
+    rdfs:label "Sub Piping System (Subline)" ;
+    rdfs:comment """The project-scoped grouping level between Line and
+PipingSegment (spec §2.2a), present in project B (ISO-15926/bppidsys), not
+project A. A functional grouping like the other line-hierarchy levels —
+ido:System only. Sits in the containment chain: Line --hasFunctionalPart-->
+Subline --hasFunctionalPart--> PipingSegment. Because it is project-scoped,
+the projection asserts it only where the source data carries the subline
+level; project A skips it and Line contains PipingSegment directly.""" .
+
+pidsys:UnclassifiedComponent
+    a owl:Class ;
+    rdfs:subClassOf pidsys:PipingComponent ;
+    rdfs:label "Unclassified Component" ;
+    rdfs:comment """C_UNCLASSIFIED_COMPONENT — an honest 'no real
+classification available' node for a component with no component_class or
+one carrying a source-tool catch-all placeholder
+(CATCHALL_COMPONENT_CLASSES). Never a fabricated guess.""" .
+
+#################################################################
+#  Documents (spec §2.0 / master-data object 1)
+#################################################################
+
+pidsys:Document
+    a owl:Class ;
+    rdfs:subClassOf ido:InformationObject ;
+    rdfs:label "Document" ;
+    rdfs:comment """A P&ID (and, more generally, an engineering document) —
+master-data object 1 (spec). Anchored under ido:InformationObject (WD: "a
+pattern that is about something, concretized as at least one physical
+entity"; the WD's own example is "a P&ID diagram"). Declared explicitly
+(rather than left as bare native InformationObject) so that Connection and
+OffPageConnector — which are ABOUT a drawing — have a concrete class to
+point at, and so the containment chain (Document → Line → ...) has a real
+root node.
+
+Document TYPE is deliberately NOT modelled as subclasses here. The kind of
+a document (P&ID, isometric, GA, datasheet, cause-&-effect, ...) is
+reference data, not T-Box: a project can generate a very large, evolving
+set of document types, so they belong in a governed Document-Type Reference
+Data Library (SKOS concepts in graph:refdata), with each Document carrying
+a hasDocumentType link to a concept — the same rules-as-data discipline the
+boundary roles and fluid catalogue follow. Minting an owl:Class per
+document type would bake a mutable, project-specific list into the ontology.
+See the scoping note for the RDL design.""" .
+
+pidsys:hasDocumentType
+    a owl:ObjectProperty ;
+    rdfs:domain pidsys:Document ;
+    rdfs:range skos:Concept ;
+    rdfs:label "has document type" ;
+    rdfs:comment """Links a Document to its type concept (P&ID, isometric,
+datasheet, ...) held as governed SKOS reference data in graph:refdata — NOT
+an owl:Class per type. Kept as an object property to a skos:Concept
+precisely so the document-type vocabulary stays data, not T-Box: a project
+generates a large, evolving, client-varying set of types, so minting a
+class each would bake a mutable list into the ontology. Same rules-as-data
+discipline as pidsys:hasBoundaryRole. Each concept may carry a crosswalk
+URI to an external standard (CFIHOS / PCA RDL document types) and the same
+resolution discipline as component classes (exact | close | label |
+pending), so an unresolved type is honest rather than fabricated.""" .
+
+#################################################################
+#  Connectivity — the keystone reified edge (spec §3.1 gap 2,
+#  §3.2 row 2.12)
+#################################################################
+
+pidsys:Connection
+    a owl:Class ;
+    rdfs:subClassOf ido:InformationObject ;
+    rdfs:label "Connection" ;
+    rdfs:comment """Keystone extension class. IDO's ido:connectedTo is a
+bare, symmetric, unreified property and cannot carry the Source/Derived
+provenance flag or a connection type — so the edge is reified. A reified
+connection is an information artifact ABOUT two physical objects, not a
+physical thing itself, so it is anchored under the native
+ido:InformationObject (the same category the P&ID Document maps to) rather
+than left under owl:Thing. IDO has no native reified-connection class
+(spec §3.1), so the class is net-new, but its parent is native.
+One instance per silver_connections row (map_connection), carrying
+fromObject/toObject, fromNode/toNode, connType, and a MANDATORY derived
+boolean. Being an InformationObject, a Connection is NOT itself connectable
+via ido:connectedTo — correct: an edge is about things, not connected to
+them.""" .
+
+pidsys:ConnectionNode
+    a owl:Class ;
+    rdfs:subClassOf ido:Feature ;
+    rdfs:label "Connection Node" ;
+    rdfs:comment """A connection point on a component (spec §2.4.1) —
+anchored under ido:Feature, the WD-native term for "a contiguous,
+non-separable part of a physical object" (WD examples: "a flange face, the
+inside surface of a pump, ... a bolt threading"). This is more accurate
+than the prior ido:PhysicalObject anchor: a node is a point/feature ON a
+component, not a made object in its own right, so it is NOT a
+PhysicalArtefact and is a Feature, related to its component by
+ido:hasFeature.
+
+Node identity is net-new (it carries per-node nominal diameter and is what
+a Connection's fromNode/toNode point at). The projection emits native
+ido:connectedTo / ido:directlyConnectedTo for graph walking; the reified
+pidsys:Connection alongside them carries the provenance (derived) and type.
+No pidsys: connectivity property is minted.
+
+CONNECTIVITY (confirmed): ido:connectedTo / ido:directlyConnectedTo are
+domained on ido:PhysicalObject, and ido:Feature is a subclass of
+ido:PhysicalObject (confirmed by David, 2026-09-15 — the WD's DL text does
+not spell out Feature's SubClassOf, but Feature does sit under
+PhysicalObject). So a ConnectionNode, as a Feature, is legally on the
+connectivity graph and node-to-node directlyConnectedTo is valid. Node-
+level adjacency is therefore sound; component/piece-level adjacency (what
+walk.py uses) remains the primary path.""" .
+
+pidsys:connectionType
+    a owl:DatatypeProperty ;
+    rdfs:domain pidsys:Connection ;
+    rdfs:range xsd:string ;
+    rdfs:label "connection type" ;
+    rdfs:comment """One of the four types of the single Connection entity
+(spec §2.12): Process, Nozzle attachment, Signal, Off-Page continuation.""" .
+
+pidsys:derived
+    a owl:DatatypeProperty ;
+    rdfs:domain pidsys:Connection ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "derived" ;
+    rdfs:comment """Provenance flag (spec §2.12, [MD §2.12]). false = a
+connection stated whole in the source; true = reconstructed (inferred
+node-to-node links, matched off-page pairs). Mapping a Connection with no
+derived value is a hard error in map_connection.""" .
+
+pidsys:fromObject
+    a owl:ObjectProperty ;
+    rdfs:domain pidsys:Connection ;
+    rdfs:range [ a owl:Class ;
+                 owl:unionOf ( ido:PhysicalObject pidsys:OffPageConnector ) ] ;
+    rdfs:label "from object" ;
+    rdfs:comment """Endpoint of a reified Connection. Range is the union of
+ido:PhysicalObject (piping component, nozzle, equipment) and
+pidsys:OffPageConnector, because §2.12 admits an Off-Page Connector as a
+valid endpoint — and an OPC is an InformationObject, not a PhysicalObject,
+so the range cannot be PhysicalObject alone. Deliberately a union of the
+two real endpoint types rather than widening to ido:Object/owl:Thing.""" .
+
+pidsys:toObject
+    a owl:ObjectProperty ;
+    rdfs:domain pidsys:Connection ;
+    rdfs:range [ a owl:Class ;
+                 owl:unionOf ( ido:PhysicalObject pidsys:OffPageConnector ) ] ;
+    rdfs:label "to object" ;
+    rdfs:comment "Endpoint of a reified Connection; same union range as pidsys:fromObject." .
+
+pidsys:fromNode
+    a owl:ObjectProperty ;
+    rdfs:domain pidsys:Connection ;
+    rdfs:range pidsys:ConnectionNode ;
+    rdfs:label "from node" .
+
+pidsys:toNode
+    a owl:ObjectProperty ;
+    rdfs:domain pidsys:Connection ;
+    rdfs:range pidsys:ConnectionNode ;
+    rdfs:label "to node" .
+
+pidsys:flowsTo
+    a owl:ObjectProperty ;
+    rdfs:domain ido:PhysicalObject ;
+    rdfs:range ido:PhysicalObject ;
+    rdfs:label "flows to" ;
+    rdfs:comment """Directed flow — the property IDO/LIS-14 lacks entirely
+(spec §3.1 gap 1). Deliberately NOT a subproperty of ido:connectedTo:
+connectedTo is symmetric, and a subproperty inherits symmetry, which would
+destroy direction. IDO's core has no asymmetric/directional connectivity
+companion (confirmed: directlyConnectedTo is connectedTo's only
+subproperty, also symmetric), so flowsTo is a legitimate standalone
+pidsys: term. Emitted ONLY when flow_sense orients the edge
+(forward/reverse/both); flow_sense=none emits none at all, never a guessed
+direction. The three directional guards (flare, consumer, relief
+inlet-side) read this; without it they are not expressible.""" .
+
+#################################################################
+#  Off-Page Connector (spec §2.11; design in
+#  off_page_connector_representation.md)
+#################################################################
+
+pidsys:OffPageConnector
+    a owl:Class ;
+    rdfs:subClassOf ido:InformationObject ;
+    rdfs:label "Off-Page Connector" ;
+    rdfs:comment """A drawing-continuation symbol (spec §2.11) — an
+information artifact marking that a piping network continues elsewhere, NOT
+a physical thing in the plant. Anchored under ido:InformationObject, a
+SIBLING of pidsys:Connection, not a subclass of it and not a PhysicalObject:
+- Not PhysicalObject — it is a symbol on a drawing, not plant equipment
+  (deliberately excluded from equipment.rdf / ten_equipment.rdf).
+- Not a subclass of Connection — an OPC is the ENDPOINT a Connection points
+  at (§2.12 lists 'Off-Page Connector' as a valid from/to endpoint type,
+  beside Piping Component and Nozzle), not the edge. Making it a Connection
+  would invert the from/to model (edges pointing at edges). The mating-pair
+  relationship IS a Connection (connType 'Off-Page continuation',
+  derived=true) whose fromObject/toObject are the two OPC endpoint nodes;
+  the connector node itself is this endpoint class.
+Its DEXPI sandbox URI (e.g.
+http://sandbox.dexpi.org/rdl/FlowOutPipeOffPageConnector) is passed through
+as component_class_uri for traceability, not minted as a new class. Flow
+direction (FlowIn/FlowOut...) is metadata on the node, not a subclass.""" .
+
+pidsys:terminates
+    a owl:ObjectProperty ;
+    rdfs:domain pidsys:OffPageConnector ;
+    rdfs:range pidsys:PipingSegment ;
+    rdfs:label "terminates" ;
+    rdfs:comment """The OPC terminates a Piping Segment (1:1, spec §2.13) —
+range is pidsys:PipingSegment specifically, not the general PipingComponent
+(a segment is a grouping, now its own dual-nature class). A DIRECT edge,
+deliberately NOT reified through Connection — unlike the mating-pair
+relationship, the spec gives this row no '(via Connection)' tag.""" .
+
+pidsys:offPageFlowDirection
+    a owl:DatatypeProperty ;
+    rdfs:domain pidsys:OffPageConnector ;
+    rdfs:range xsd:string ;
+    rdfs:label "off-page flow direction" ;
+    rdfs:comment """FlowInPipeOffPageConnector / FlowOutPipeOffPageConnector
+— which end of the cross-document pair this node is. A qualifier, not a
+type.""" .
+
+#################################################################
+#  Grouping / output System classes (spec §3.2, §3.3)
+#################################################################
+
+pidsys:ProcessUnit
+    a owl:Class ;
+    rdfs:subClassOf ido:System ;
+    rdfs:label "Process Unit" ;
+    rdfs:comment "Tag-decoded grouping level (spec §2.1a)." .
+
+pidsys:StartUpPackage
+    a owl:Class ;
+    rdfs:subClassOf ido:System ;
+    rdfs:label "Start-Up Package" ;
+    rdfs:comment "Reference-data-provided grouping root (spec §2.1b)." .
+
+pidsys:InstrumentationLoop
+    a owl:Class ;
+    rdfs:subClassOf ido:System ;
+    rdfs:label "Instrumentation Loop" ;
+    rdfs:comment "Instrument-function grouping (spec §2.8)." .
+
+pidsys:CommissioningSystem
+    a owl:Class ;
+    rdfs:subClassOf ido:System ;
+    rdfs:label "Commissioning System" ;
+    rdfs:comment """The computed systemization output (spec [SS]). All
+members have 'computed' provenance and land in graph:results, produced by
+the rule package AFTER the Silver walk — never asserted in the shared
+plant model (graph:masterdata). The class is declared here; population is
+the rule layer's job, not this ontology's.""" .
+
+pidsys:hasStartUpPackage
+    a owl:ObjectProperty ;
+    rdfs:domain pidsys:ProcessUnit ;
+    rdfs:range pidsys:StartUpPackage ;
+    rdfs:label "has start-up package" .
+
+pidsys:hasMember
+    a owl:ObjectProperty ;
+    rdfs:subPropertyOf ido:hasFunctionalPart ;
+    rdfs:domain pidsys:CommissioningSystem ;
+    rdfs:label "has member" ;
+    rdfs:comment """A computed commissioning system's members, as a
+subproperty of the native ido:hasFunctionalPart — so membership
+participates in IDO's own composition semantics (per the WD:
+lis:hasFunctionalPart Domain lis:System; lis:System SubClassOf
+lis:hasFunctionalPart some ...; lis:functionalPartOf is the inverse
+direction).
+
+RANGE BY INHERITANCE (v4.2): this property declares NO explicit rdfs:range;
+it inherits Range lis:FunctionalObject from ido:hasFunctionalPart (v4.2:
+hasFunctionalPart Domain System, Range FunctionalObject). In v4.2
+lis:FunctionalObject is NOT deprecated (full definition, ⊑ Object +
+hasFunction some Function) — so this is a clean-inheritance choice, not a
+deprecation workaround: keeping no local range means pidsys:hasMember
+tracks the core automatically if hasFunctionalPart's range ever changes.
+(An earlier draft, checking the 2023 WD, treated FunctionalObject as
+deprecated and framed this as avoiding a deprecated pin; that flag was
+WD-only and does not hold in the pinned 4.2.) Do not add an explicit range.
+
+PROJECTION CONTRACT (required, not optional): hasMember points at a
+component's FUNCTIONAL individual (the type hasFunctionalPart ranges on),
+never at the physical component itself — a physical piping component (a
+gate valve, a pipe) is a PhysicalObject and enters a system through its
+FUNCTION, not through installedAs. NOTE (corrected 2026-09-15 against the
+WD): ido:installedAs is NOT the physical/functional bridge — the WD defines
+it as Domain lis:InstalledObject, Range lis:PrescriptiveObject, Asymmetric:
+the tag-vs-serial-numbered-artefact relation ("Pump P-101 is a tag; ACME
+serial 457636 installedAs this tag"). The physical→functional link is the
+function-realization pattern: the functional individual is 'lis:hasFunction
+some lis:Function'; that Function (a lis:Potential) is 'lis:realizedIn' some
+lis:Activity (WD: realizedIn is Domain Potential, Range Activity) in which
+the physical object participates — realizedIn does NOT link a function
+straight to a physical object. So rdf_mapper.py must, per member: (a) assert
+the physical component, (b) mint its functional individual, (c) relate them
+through the hasFunction / realizedIn / participation pattern, and (d) assert
+system pidsys:hasMember functional. Pointing hasMember straight at the
+physical component would wrongly infer that component to be a functional
+individual. If the projection cannot yet mint functional individuals, use
+pidsys:hasBoundary-style direct physical edges instead.""" .
+
+pidsys:hasBoundary
+    a owl:ObjectProperty ;
+    rdfs:domain pidsys:CommissioningSystem ;
+    rdfs:range pidsys:PipingComponent ;
+    rdfs:label "has boundary" ;
+    rdfs:comment "The boundary-forming components delimiting a computed system." .
+
+#################################################################
+#  Boundary role (spec §3.3) — the DEFINED class stays here;
+#  the role SET (isolation/positive/relief/trap) stays SKOS
+#  reference data in graph:refdata, NOT hardcoded here.
+#################################################################
+
+pidsys:BoundaryFormingComponent
+    a owl:Class ;
+    rdfs:subClassOf pidsys:PipingComponent ;
+    rdfs:label "Boundary-Forming Component" ;
+    rdfs:comment """A component whose resolved class is in one of the four
+boundary role sets. Defined-class semantics, but the membership LIST is
+governed SKOS reference data (load_boundary_roles reads graph:refdata's
+isolation/positive/relief/trap sets) — the reasoner marks the boundary,
+the sets are never baked into the T-Box. CheckValve is boundary-forming in
+no role set, by construction.""" .
+
+pidsys:hasBoundaryRole
+    a owl:ObjectProperty ;
+    rdfs:domain pidsys:PipingComponent ;
+    rdfs:range skos:Concept ;
+    rdfs:label "has boundary role" ;
+    rdfs:comment """Links a component to its boundary role concept
+(isolation / positive / relief / trap) held as SKOS refdata. Kept as an
+object property to a Concept precisely so the role vocabulary stays data,
+not classes.""" .
+
+#################################################################
+#  RDL resolution markers (Gold spec §4.3 / addendum) — declared
+#  here because they are pidsys: predicates the projection emits
+#  on domain classes.
+#################################################################
+
+pidsys:rdlUriPending
+    a owl:DatatypeProperty ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "RDL URI pending" ;
+    rdfs:comment """Asserted true on any domain class not yet carrying a
+real RDL/PLM URI. Honest placeholder, cleared by a graph:refdata crosswalk
+lookup — never a fabricated URI.""" .
+
+pidsys:rdlMatchType
+    a owl:DatatypeProperty ;
+    rdfs:range xsd:string ;
+    rdfs:label "RDL match type" ;
+    rdfs:comment """Confidence marker on a resolved class: exact | close |
+label. A close/label resolution on a boundary-forming class must pass a
+human review gate before feeding trusted systemization.""" .

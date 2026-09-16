@@ -1,0 +1,9 @@
+[
+  {"component_class": "GateValve", "role": "isolation"},
+  {"component_class": "GlobeValve", "role": "isolation"},
+  {"component_class": "ButterflyValve", "role": "isolation"},
+  {"component_class": "PipeFlangeSpacer", "role": "positive"},
+  {"component_class": "SafetyValveOrFitting", "role": "relief"},
+  {"component_class": "Reliefdevices", "role": "relief"},
+  {"component_class": "SteamTrap", "role": "trap"}
+]

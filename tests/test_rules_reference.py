@@ -58,6 +58,84 @@ class TestBoundaryRoles(unittest.TestCase):
         self.assertFalse(rr.is_boundary_forming("PipeReducer", self.roles))
 
 
+class TestRdlResolution(unittest.TestCase):
+    """§4.3.1's resolver (gold_layer_spec.md risk #18). The crosswalk/alias
+    rows here are small synthetic examples for test purposes only — the
+    real crosswalk assets are Workstream 1.5 and don't exist yet."""
+
+    def setUp(self):
+        from gold import rdf_mapper
+        from gold.rdf_model import Dataset
+        self.ds = Dataset()
+        rdf_mapper.declare_ontology_skeleton(self.ds)
+        # Only GateValve is boundary-forming in this fixture; PressureVessel
+        # (used below as the non-boundary example) never gets a role row.
+        rdf_mapper.map_boundary_sets(self.ds, [{"component_class": "GateValve", "role": "isolation"}])
+        rdf_mapper.map_rds_plm_crosswalk(self.ds, [
+            {"rds_uri": "http://data.posccaesar.org/rdl/RDS427229",
+             "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005976",
+             "match_type": "close"},
+            {"rds_uri": "http://data.posccaesar.org/rdl/RDS999999",
+             "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100000001",
+             "match_type": "exact"},
+        ])
+        rdf_mapper.map_componentclass_plm_aliases(self.ds, [
+            {"component_class": "GateValve", "plm_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_GATEVALVE"},
+        ])
+        self.crosswalk = rr.load_rds_plm_crosswalk(self.ds)
+        self.aliases = rr.load_componentclass_plm_aliases(self.ds)
+        self.boundary_roles = rr.load_boundary_roles(self.ds)
+
+    def test_uri_bridge_close_match(self):
+        result = rr.resolve_rdl_uri(
+            "PressureVessel", "http://data.posccaesar.org/rdl/RDS427229",
+            self.crosswalk, self.aliases, self.boundary_roles,
+        )
+        self.assertEqual(result, {
+            "rdl_uri": "http://rds.posccaesar.org/ontology/plm/rdl/PCA_100005976",
+            "rdl_match_type": "close",
+            "pending_review": False,  # PressureVessel is not a boundary-forming class in this fixture
+        })
+
+    def test_uri_bridge_exact_match_never_needs_review_even_on_a_boundary_class(self):
+        # Not a real scenario (RDS999999 isn't GateValve's real RDS code --
+        # synthetic test data) but exercises the rule directly: exact never
+        # sets pending_review, regardless of boundary role.
+        result = rr.resolve_rdl_uri(
+            "GateValve", "http://data.posccaesar.org/rdl/RDS999999",
+            self.crosswalk, self.aliases, self.boundary_roles,
+        )
+        self.assertEqual(result["rdl_match_type"], "exact")
+        self.assertFalse(result["pending_review"])
+
+    def test_label_bridge_used_when_no_uri_present(self):
+        # PostProc shape: component_class_uri is None (never exported).
+        result = rr.resolve_rdl_uri("GateValve", None, self.crosswalk, self.aliases, self.boundary_roles)
+        self.assertEqual(result["rdl_uri"], "http://rds.posccaesar.org/ontology/plm/rdl/PCA_GATEVALVE")
+        self.assertEqual(result["rdl_match_type"], "label")
+
+    def test_label_bridge_on_a_boundary_forming_class_requires_review(self):
+        result = rr.resolve_rdl_uri("GateValve", None, self.crosswalk, self.aliases, self.boundary_roles)
+        self.assertTrue(result["pending_review"])  # label + boundary-forming (isolation) -> review gate
+
+    def test_uri_bridge_preferred_over_label_bridge_when_both_present(self):
+        # GateValve has both a (synthetic) RDS URI match and a label alias;
+        # the URI bridge must win as the higher-confidence signal.
+        result = rr.resolve_rdl_uri(
+            "GateValve", "http://data.posccaesar.org/rdl/RDS427229",
+            self.crosswalk, self.aliases, self.boundary_roles,
+        )
+        self.assertEqual(result["rdl_match_type"], "close")
+
+    def test_no_match_anywhere_leaves_rdl_uri_none(self):
+        result = rr.resolve_rdl_uri("CustomPipingComponent", None, self.crosswalk, self.aliases, self.boundary_roles)
+        self.assertEqual(result, {"rdl_uri": None, "rdl_match_type": None, "pending_review": False})
+
+    def test_no_signal_at_all_is_not_a_crash(self):
+        result = rr.resolve_rdl_uri(None, None, self.crosswalk, self.aliases, self.boundary_roles)
+        self.assertEqual(result, {"rdl_uri": None, "rdl_match_type": None, "pending_review": False})
+
+
 class TestDirectionalGuards(unittest.TestCase):
     """Reproduces walk.py's own documented scenarios exactly (see
     tests/fixtures.py docstring)."""
