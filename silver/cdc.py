@@ -71,7 +71,39 @@ def anchor_key(o: dict, grain: str) -> tuple:
         # bucket: owning-segment anchor + component class (ItemTag is a line tag,
         # not per-object, so a component has no business tag of its own)
         return ("CMP", _norm(o.get("segment_anchor")), _norm(o.get("component_class")))
+    if grain == "off_page_connector":
+        # An OPC's UID-free identity is its ROLE on the sheet, NOT its element id
+        # (SmartPlant re-mints OPC element UIDs on delete+recreate like any other
+        # object). Role = (drawing, mate it continues to). mate_key prefers the
+        # cross-sheet pairing key (opctag ‖ normalised guid_mate), falling back to
+        # the human continuation label (to_from_text), which is stable across
+        # revisions for a placed OPC.
+        #
+        # on_segment is DELIBERATELY NOT in the anchor (engineers' decision,
+        # 2026-09-18): a re-routed OPC — same continuation moved to a different
+        # segment — should read as a Modify (changed: on_segment), not a
+        # Delete+New. on_segment is therefore an ENGINEERING field only
+        # (_ENG_FIELDS), so a segment change trips content_hash_eng within a
+        # stable anchor. Trade-off accepted: if two OPCs on one drawing continue
+        # to the SAME mate but sit on different segments, they now share an
+        # anchor and pair inside the bucket (like same-class components) rather
+        # than being two distinct anchors — the mate is the identity, the segment
+        # is an attribute of it.
+        mate = (o.get("opctag")
+                or _norm_guid(o.get("guid_mate"))
+                or _norm(o.get("to_from_text")).upper())
+        return ("OPC", _norm(o.get("drawing_number")), _norm(mate))
     return ("OBJ", _norm(o.get("uid")))
+
+
+def _norm_guid(g) -> Optional[str]:
+    """Bare GUID from a DEXPI element id / SP_pairedWithID (strip an 'SP' prefix),
+    so guid_mate and a mate's guid_self compare equal (mirrors
+    offpage._match_by_guid). None/empty -> None."""
+    if not g:
+        return None
+    g = str(g)
+    return g[2:] if g.startswith("SP") else g
 
 
 # engineering attributes per grain — the change-meaningful fields, no UID/oracle
@@ -80,6 +112,14 @@ _ENG_FIELDS = {
                 "insul_purpose", "insul_type", "insul_thick"),
     "component": ("component_class",),
     "equipment": ("equipment_class",),
+    # An OPC's engineering meaning: its classification, its typed flow role, the
+    # segment it terminates, the mate it names, and its reference URI. on_segment
+    # is already part of the anchor (identity), so a segment MOVE is Del+New, not
+    # Modify; keeping it here too is harmless (equal within a matched anchor) and
+    # keeps the audit hash honest. Excludes the element id and guids (a re-mint
+    # must not trigger Modify — those live only in content_hash_audit).
+    "off_page_connector": ("opc_type", "flow_direction", "on_segment",
+                           "to_from_text", "component_class_uri"),
 }
 
 

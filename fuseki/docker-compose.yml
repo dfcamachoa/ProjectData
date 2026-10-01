@@ -10,6 +10,12 @@
 #   cd fuseki && docker compose up -d        # Fuseki on http://localhost:3030
 #   python -m gold.fuseki_bootstrap --fixture   # smoke test: push tests/fixtures.py's scenario
 #
+# Jena rules engine (added 2026-09-23): a second, read-only service
+# "gold-rules" (gold-rules.ttl) runs gold/jena_rules/classification.rules
+# over the files in rules-input/. Refresh it with:
+#   python -m gold.jena_parity --fixture     # export -> restart -> parity report
+# or from the notebook's §8b cell against the real projection.
+#
 # Reset (mirrors the sibling prototype's own reset procedure,
 # CONTINUATION_BRIEF.md §9):
 #   cd fuseki && docker compose down -v && docker compose up -d
@@ -29,14 +35,15 @@ services:
       # $FUSEKI_ADMIN_PASSWORD) to the same value.
       ADMIN_PASSWORD: "admin"
       # Create a persistent, writable dataset named "gold" on startup —
-      # matches gold/fuseki_bootstrap.py's DEFAULT_DATASET and
-      # tests/test_fuseki_client.py's request-construction fixtures use a
-      # different, unrelated placeholder name ("pidsys") purely as an
-      # arbitrary string for URL-shape assertions; it has no bearing on
-      # what this compose file or fuseki_bootstrap.py actually push to.
+      # matches gold/fuseki_bootstrap.py's DEFAULT_DATASET.
       FUSEKI_DATASET_1: "gold"
     volumes:
       - fuseki-data:/fuseki
+      # Jena rules engine — the service config, the rules, and the two
+      # exported input graphs (never graph:oracle). Read-only mounts.
+      - ./gold-rules.ttl:/fuseki/configuration/gold-rules.ttl:ro
+      - ../gold/jena_rules:/fuseki/rules:ro
+      - ./rules-input:/fuseki/rules-input:ro
 
 volumes:
   fuseki-data:

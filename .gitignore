@@ -12,3 +12,4 @@ silver/_recon/pidtool/__pycache__
 metastore_db
 spark-warehouse
 derby.log
+silver/_recon/__pycache__

@@ -68,6 +68,29 @@ class GoldInputs:
     # for a real run — the crosswalk assets themselves don't exist yet.
     rds_plm_crosswalk: list = field(default_factory=list)          # DEXPI URI-bridge rows
     componentclass_plm_aliases: list = field(default_factory=list)  # PostProc label-bridge rows
+    # Off-Page Connectors (Workstream 2). Two lists, both default-empty.
+    #
+    # IMPORTANT — these have NO Silver source yet. Confirmed 2026-09-17 against
+    # the real silver/_recon/.../reconstructed.py: `_harvest_opcs` produces
+    # records shaped {eid, guid_self, guid_mate, opctag, home, paired}, and
+    # `_stitch_from` consumes match_pairs() by adding UNDIRECTED graph.und
+    # edges and then discards the structure -- `opc_stitched`/`opc_offset` are
+    # integer COUNTS, not records. No per-OPC row, no terminates relationship,
+    # no flow-direction, and no OPC object-kind survives into silver_* tables
+    # or spark_bridge.build_events. So today both lists are always empty and
+    # the OPC projection below is dormant-but-correct scaffolding.
+    #
+    # To light it up, Silver must first emit OPC structure (see the Silver
+    # change spec delivered alongside this file). When it does, align the row
+    # keys to what map_off_page_connector / map_connection read:
+    #   off_page_connectors -- one row per PLACED OPC (matched + unmatched):
+    #     opc_id, tag, on_segment, flow_direction, component_class_uri.
+    #   opc_connections -- one row per MATCHED cross-document pair only:
+    #     connection_id, from_id, to_id, from_kind/to_kind
+    #     ("off_page_connector"), conn_type ("Off-Page continuation"),
+    #     derived (True), flow_sense.
+    off_page_connectors: list = field(default_factory=list)
+    opc_connections: list = field(default_factory=list)
 
 
 def build_rdf_dataset(inputs: GoldInputs) -> Dataset:
@@ -137,6 +160,14 @@ def build_rdf_dataset(inputs: GoldInputs) -> Dataset:
         rdf_mapper.map_equipment(ds, merged_eq)
     for conn in inputs.connections:
         rdf_mapper.map_connection(ds, conn)
+    # Off-Page Connectors (Workstream 2): the OPC node + its direct terminates
+    # edge, then the matched cross-document pair as an "Off-Page continuation"
+    # Connection. An unmatched OPC (opc_offset) yields a node but no pair row,
+    # so opc_connections carries only the matched pairs -- see GoldInputs.
+    for opc in inputs.off_page_connectors:
+        rdf_mapper.map_off_page_connector(ds, opc)
+    for opc_conn in inputs.opc_connections:
+        rdf_mapper.map_connection(ds, opc_conn)
     assert_oracle_confined(ds)
     return ds
 
@@ -166,6 +197,7 @@ _GOLD_KIND_TO_MAPPER = {
     "component": (rdf_mapper.map_component, "component_id"),
     "equipment": (rdf_mapper.map_equipment, "equipment_id"),
     "connection": (rdf_mapper.map_connection, "connection_id"),
+    "off_page_connector": (rdf_mapper.map_off_page_connector, "opc_id"),
 }
 
 
@@ -259,6 +291,19 @@ def build_rdf_dataset_from_gold_objects(
     `rdlUriPending` marker fires exactly as it did before this parameter
     pair existed; the crosswalk assets themselves (Workstream 1.5) don't
     exist yet.
+
+    Off-Page Connectors (Workstream 2): a `"off_page_connector"`-kind
+    `GoldRow` is projected via `rdf_mapper.map_off_page_connector` (the OPC
+    node + its direct `terminates` edge), threaded through the same generic
+    kind loop as component/equipment/connection, so it carries the four
+    bi-temporal predicates like any other node. The matched cross-document
+    PAIR is an ordinary Connection of type "Off-Page continuation": if Silver
+    writes those pair rows into `gold_objects` under `object_kind ==
+    "connection"` (their natural kind — they ARE Connections), they already
+    flow through the `"connection"` branch with no extra handling here. CONFIRM
+    that Silver's `opc_stitched`->CDC path emits matched pairs as
+    `object_kind="connection"` (not a bespoke kind); if it uses a distinct
+    kind, add it to `_GOLD_KIND_TO_MAPPER` pointing at `map_connection`.
     """
     ds = Dataset()
     rdf_mapper.declare_ontology_skeleton(ds)

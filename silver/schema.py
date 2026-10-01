@@ -90,7 +90,13 @@ RECON_RESULT_STRUCT = StructType([
     StructField("equipment", ArrayType(EQUIPMENT_STRUCT)),
 ])
 
-# name -> (struct, natural key) for the four output tables
+# name -> (struct, natural key) for the four Stage A+B reconstruction output
+# tables. This drives spark_job.run()'s explode of the reconstruction UDF's
+# result struct (RECON_RESULT_STRUCT), which has exactly these four array fields
+# — so silver_off_page_connectors MUST NOT be added here: it is a Stage C
+# assembly output (written directly by assemble_job.py via OPC_ENTITY_STRUCT /
+# OPC_ENTITY_TABLE below), not a reconstruction output, and there is no
+# `off_page_connectors` field on the reconstruction struct to explode.
 SILVER_TABLES = {
     "silver_components": (COMPONENT_STRUCT, "component_id"),
     "silver_segments": (SEGMENT_STRUCT, "segment_id"),
@@ -135,12 +141,74 @@ OPC_STRUCT = StructType([
 
 OPC_COLUMNS = [f.name for f in OPC_STRUCT.fields]
 
+# --- Stage C: harvest UDF boundary shape (Workstream 2) --------------------- #
+# The UDF that harvests OPCs per drawing must carry BOTH the matcher keys AND
+# the descriptive entity fields to the driver, or the entity fields are dropped
+# at the Spark boundary (the lean OPC_STRUCT above would project them away).
+# This is the harvest struct assemble_job._harvest_udf returns; assemble_opcs
+# reads these dicts and match_pairs still uses only the matcher subset. Distinct
+# from OPC_ENTITY_STRUCT (the persisted table): this is a transport shape and
+# has no on_segment (that is joined from silver_components in the job, not
+# harvested). class_uri here is the harvest record's key; it lands in the entity
+# table's component_class_uri column.
+OPC_HARVEST_STRUCT = StructType([
+    StructField("eid", StringType()),
+    StructField("home", StringType()),
+    StructField("paired", StringType()),
+    StructField("opctag", StringType()),
+    StructField("guid_self", StringType()),
+    StructField("guid_mate", StringType()),
+    StructField("opc_type", StringType()),         # entity field (Step 1 harvest)
+    StructField("flow_direction", StringType()),   # entity field
+    StructField("class_uri", StringType()),        # entity field -> component_class_uri
+    StructField("to_from_dir", StringType()),      # entity field
+    StructField("to_from_text", StringType()),     # entity field
+    *_LINEAGE,
+])
+
+OPC_HARVEST_COLUMNS = [f.name for f in OPC_HARVEST_STRUCT.fields]
+
+# --- silver_off_page_connectors: Workstream 2 per-OPC ENTITY (Gold feed) ---- #
+# One row per PLACED off-page connector (matched AND unmatched — both get a Gold
+# OffPageConnector node; only matched also get the OffPage edge above). Distinct
+# from OPC_STRUCT: that is the lean, matcher-only HARVEST shape; this is the
+# persisted ENTITY the Gold C_OFF_PAGE_CONNECTOR node projects from. Sources:
+#   (a) descriptive fields — from the (widened) Stage C harvest, straight off the
+#       XML element; opc_type drives Gold's `terminates` piping-vs-instrument
+#       branch; flow_direction/component_class_uri are DEXPI-only.
+#   (b) on_segment — NOT from the harvest (parse-only, no Pipeline.run()) but a
+#       Spark join in assemble_job.py: opc_id -> silver_components.component_id,
+#       take its segment_id (an OPC lands in silver_components with kind
+#       containing "OffPageConnector"). None for instrument OPCs not on a pipe.
+# See silver_opc_feed_change_spec.md Step 4. JOIN-KEY: opc_id (eid) must equal
+# silver_components.component_id — confirm reconstruct.py doesn't _cid()-transform it.
+OPC_ENTITY_STRUCT = StructType([
+    StructField("opc_id", StringType(), nullable=False),   # = eid; join key to silver_components
+    StructField("tag", StringType()),                      # opctag (often None for DEXPI)
+    StructField("opc_type", StringType()),                 # OPCType classification (both formats)
+    StructField("flow_direction", StringType()),           # DEXPI FlowIn/FlowOut; None for PostProc
+    StructField("component_class_uri", StringType()),      # DEXPI sandbox URI pass-through; None PostProc
+    StructField("to_from_dir", StringType()),              # "TO"/"FROM" narrative label (not a flow role)
+    StructField("to_from_text", StringType()),             # mate name, provenance
+    StructField("on_segment", StringType()),               # terminates target (join); None if not on a pipe
+    StructField("paired_drawing", StringType()),           # paired back-reference (reference/QA)
+    StructField("matched", BooleanType()),                 # in a matched pair -> has an OffPage edge
+    *_LINEAGE,
+])
+
+OPC_ENTITY_TABLE = "silver_off_page_connectors"
+OPC_ENTITY_COLUMNS = [f.name for f in OPC_ENTITY_STRUCT.fields]
+# NOTE: deliberately NOT added to SILVER_TABLES — that dict drives Stage A+B's
+# reconstruction explode (four fields only). assemble_job.py writes this table
+# directly via OPC_ENTITY_TABLE / OPC_ENTITY_STRUCT / OPC_ENTITY_COLUMNS, and
+# gold reads it via spark_bridge.GRAIN_TABLE, so no registry entry is needed.
+
 # --- silver_cdc: Stage E object-grain deltas (silver_spec §3.5) ------------- #
 # One row per changed object across two Bronze versions of a drawing. These are
 # exactly the New/Modified/Deleted interval open/close events Gold consumes.
 CDC_STRUCT = StructType([
     StructField("cdc_id", StringType(), nullable=False),
-    StructField("grain", StringType()),            # segment|component|equipment
+    StructField("grain", StringType()),            # segment|component|equipment|off_page_connector
     StructField("drawing_number", StringType()),
     StructField("anchor", StringType()),           # the UID-free identity anchor
     StructField("change_type", StringType()),      # New|Modified|Deleted

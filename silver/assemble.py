@@ -12,7 +12,12 @@ plant-level **reduce** (`match_pairs`) that emits:
       edge per matched OPC pair, spanning two drawings (ConnType OFFPAGE, §3.3);
     * `opc_open_boundary` rows into `silver_quality` — one per **unmatched** OPC,
       whose mate is not in the loaded set (an OPEN BOUNDARY: the system continues
-      off-set — a flag, never an error or a dropped row, §3.3/§3.4).
+      off-set — a flag, never an error or a dropped row, §3.3/§3.4);
+    * `silver_off_page_connectors` rows — one per placed OPC (matched AND
+      unmatched), the per-OPC ENTITY the Gold C_OFF_PAGE_CONNECTOR node projects
+      from (Workstream 2). Descriptive fields (opc_type, flow_direction,
+      to_from_text, ...) come from the widened harvest; `on_segment` is filled by
+      the Spark job's join to silver_components (this pure core leaves it None).
 
 This module is Spark-free and unit-tested; the Spark job (`assemble_job.py`) does
 the harvest fan-out and the idempotent writes.
@@ -30,6 +35,16 @@ _LINEAGE_KEYS = ("bronze_id", "content_hash", "source_format", "project_code",
 
 # the unified OPC-record fields the matcher reads (format-independent)
 _OPC_MATCH_KEYS = ("eid", "home", "paired", "opctag", "guid_self", "guid_mate")
+
+# Workstream 2: descriptive OPC ENTITY fields (Step 1 harvest additions) that
+# ride ALONGSIDE the matcher keys, for the silver_off_page_connectors entity
+# table (schema.OPC_ENTITY_STRUCT). They do NOT affect matching -- match_pairs
+# reads only _OPC_MATCH_KEYS -- but the earlier narrow projection dropped them,
+# so the Gold OffPageConnector node had no source. on_segment is NOT here: the
+# harvest is parse-only (no Pipeline.run()), so the segment comes from a join
+# to silver_components in assemble_job.py, not from this record.
+_OPC_ENTITY_KEYS = ("opc_type", "flow_direction", "class_uri",
+                    "to_from_dir", "to_from_text")
 
 
 def harvest_opcs_document(
@@ -60,7 +75,10 @@ def harvest_opcs_document(
                    drawing_number=document_number)
     out: List[dict] = []
     for r in raw:
+        # matcher keys + Workstream-2 entity fields (the latter ride along for
+        # the silver_off_page_connectors table; they don't affect match_pairs)
         rec = {k: r.get(k) for k in _OPC_MATCH_KEYS}
+        rec.update({k: r.get(k) for k in _OPC_ENTITY_KEYS})
         rec.update(lineage)
         out.append(rec)
     return out
@@ -107,12 +125,40 @@ def _open_boundary_row(rec: dict, run_ts) -> dict:
     }
 
 
+def _opc_entity_row(rec: dict, *, matched: bool) -> dict:
+    """One silver_off_page_connectors row (schema.OPC_ENTITY_STRUCT) for a placed
+    OPC — matched or unmatched. Descriptive fields come from the widened harvest
+    record; `on_segment` is left None here and filled by assemble_job.py's join
+    to silver_components (the pure core has no Spark tables). `matched` records
+    whether this OPC also has an OffPage edge."""
+    return {
+        "opc_id": rec.get("eid"),
+        "tag": rec.get("opctag"),
+        "opc_type": rec.get("opc_type"),
+        "flow_direction": rec.get("flow_direction"),
+        "component_class_uri": rec.get("class_uri"),
+        "to_from_dir": rec.get("to_from_dir"),
+        "to_from_text": rec.get("to_from_text"),
+        "on_segment": None,                    # filled by the job's silver_components join
+        "paired_drawing": rec.get("paired"),
+        "matched": matched,
+        "bronze_id": rec.get("bronze_id"),
+        "content_hash": rec.get("content_hash"),
+        "source_format": rec.get("source_format"),
+        "project_code": rec.get("project_code"),
+        "drawing_number": rec.get("drawing_number"),
+    }
+
+
 def assemble_opcs(opc_records: List[dict], *, run_ts=None) -> dict:
     """The plant-level reduce: match every harvested OPC and produce the OffPage
-    connection rows + open-boundary ledger rows.
+    connection rows + open-boundary ledger rows + the per-OPC entity rows.
 
-    Returns ``{offpage_connections, open_boundaries, stats}`` where stats mirrors
-    the PoC's ``opc_stitched`` (matched pairs) / ``opc_offset`` (unmatched).
+    Returns ``{offpage_connections, open_boundaries, off_page_connectors, stats}``
+    where stats mirrors the PoC's ``opc_stitched`` (matched pairs) / ``opc_offset``
+    (unmatched). ``off_page_connectors`` is one entity row per placed OPC (matched
+    AND unmatched) for the silver_off_page_connectors table; its ``on_segment`` is
+    None here and filled by assemble_job.py's join to silver_components.
     """
     from bppidsys.offpage import match_pairs
 
@@ -133,9 +179,15 @@ def assemble_opcs(opc_records: List[dict], *, run_ts=None) -> dict:
     boundaries = [_open_boundary_row(by_eid.get(eid, {"eid": eid}), run_ts)
                   for eid in unmatched]
 
+    # per-OPC entity rows — every placed OPC, matched flag set from the pairs
+    matched_eids = {e for pair in edges for e in pair}
+    entities = [_opc_entity_row(rec, matched=(eid in matched_eids))
+                for eid, rec in by_eid.items()]
+
     return {
         "offpage_connections": offpage,
         "open_boundaries": boundaries,
+        "off_page_connectors": entities,
         "stats": {
             "opc_records": len(records),
             "opc_stitched": len(offpage),     # matched cross-sheet pairs

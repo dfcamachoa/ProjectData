@@ -3,8 +3,9 @@
 ## (medallion_rdf_ido_strategy_mapping.md §6, §10 step 4): the artifact a
 ## real Jena/Fuseki deployment loads, one-to-one against the Python reference
 ## implementation this PoC actually runs and unit-tests. Diff the two on any
-## change; both must be validated against the same fixtures
-## (tests/test_rules_reference.py) before either is trusted.
+## change; both must be validated against the same data before either is
+## trusted — gold/jena_parity.py is that check, run live against the
+## `gold-rules` Fuseki service (fuseki/gold-rules.ttl).
 ##
 ## Scope (medallion §6 hybrid): LOCAL, node-local classification and
 ## directional guards only. The global connected-fragment partition
@@ -14,14 +15,50 @@
 ## (medallion §6 point 5), and that partition stays in Silver/Python where
 ## it is already validated to ~97% source agreement.
 ##
-## Reads ONLY graph:refdata and graph:masterdata. NEVER graph:oracle — see
-## gold/oracle_guard.py, which is what makes that a structural invariant
-## instead of a convention here.
+## Reads ONLY graph:refdata and graph:masterdata. NEVER graph:oracle — the
+## gold-rules service's base model is built from exactly two exported files
+## (fuseki/rules-input/{masterdata,refdata}.nt), so the oracle is not merely
+## unread, it is absent from the reasoner's input. gold/oracle_guard.py
+## still enforces the same invariant on the Python side.
+##
+## Revision 2026-09-23 (first live-deployment prep). Four changes against
+## the inspection-only first version, each bringing a rule into line with
+## the Python reference it claims to mirror:
+##   1. steamCondensateCategory: Jena documents regex() as matching a
+##      literal's whole lexical form, so 'Steam|Condensate' risks matching
+##      only the bare words. Now '.*(Steam|Condensate).*' — the substring
+##      test data_specification.md §3.4 specifies, correct whether the
+##      builtin does a whole-string or a find-anywhere match.
+##   2. reliefAttribution: regex(?role, 'relief') applied a literal builtin
+##      to a URI node (the role) — at best fragile, at worst never true.
+##      Now binds the relief role by its exact URI (rdf_mapper.
+##      map_boundary_sets mints pidsys:boundary_role/<role>; jena_parity's
+##      preflight checks that URI exists in refdata).
+##   3. flareGuardSkip: dropped the fragment component's own fluid and the
+##      notEqual(?fluid, ?nbFluid) test. rules_reference.flare_guard reads
+##      only the NEIGHBOUR's fluid; walk.py's caller only ever asks about
+##      different-fluid neighbours, so downstream behaviour is unchanged,
+##      but the extra conditions broke the one-to-one claim.
+##   4. Each guard now also asserts its own reason predicate
+##      (skipFlareSink / skipSupplyTieIn) next to the shared
+##      skipAsConsumerSignal, so a parity run can compare guard-by-guard,
+##      the way the notebook's §6b reports them.
+##   5. (first live run) Adjacency is ido:connectedTo, not pidsys:isConnectedTo.
+##      The projection moved to IDO's native, symmetric connectedTo
+##      (specs/semantics/pidsys_extension.ttl: "no pidsys: connectivity
+##      property is minted"); pidsys:isConnectedTo had 0 triples, so every
+##      guard and the relief rule matched nothing. jena_parity's preflight now
+##      fails if any predicate the Python rules read is absent from these
+##      rule bodies, or any rule-body predicate has no data.
 
 @prefix pidsys: <https://pidsys.example/ns#> .
 @prefix rdf:    <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix ido:    <https://www.omg.org/spec/Commons/IndustrialData/> .
 
 # --- Fluid classification [data_specification.md §3.4] ---------------------
+# Python's classify_fluid_category returns 'utility' for anything not
+# matched below; here that is the ABSENCE of a selfOwningClass triple (a
+# default-by-negation rule would race the positive rules under RETE).
 
 # A fluid with Category "Flare" is self-owning: forms its own flare
 # collection system, never traced to a consumer.
@@ -31,14 +68,12 @@
   (?fluid pidsys:selfOwningClass "flare")
 ]
 
-# A fluid with Category "Utility" and a Subcategory containing "Steam" or
-# "Condensate" is self-owning. Jena's builtin regex is the substring test
-# data_specification.md §3.4 specifies (accepts a combined
-# "Steam / Condensate" spelling too).
+# Category "Utility" with a Subcategory containing "Steam" or "Condensate"
+# (substring — also accepts a combined "Steam / Condensate" spelling).
 [steamCondensateCategory:
   (?fluid pidsys:category "Utility")
   (?fluid pidsys:subcategory ?sub)
-  regex(?sub, 'Steam|Condensate')
+  regex(?sub, '.*(Steam|Condensate).*')
   ->
   (?fluid pidsys:selfOwningClass "steam_condensate")
 ]
@@ -54,15 +89,16 @@
 # If a fragment component's flow runs INTO a flare-fluid neighbour, and NOT
 # the reverse, the neighbour is a discharge sink, not a consumer signal.
 [flareGuardSkip:
-  (?comp pidsys:isConnectedTo ?nb)
-  (?comp pidsys:partOf ?seg) (?seg pidsys:fluidCode ?fluid)
+  (?comp ido:connectedTo ?nb)
   (?nb pidsys:partOf ?nbSeg) (?nbSeg pidsys:fluidCode ?nbFluid)
-  notEqual(?fluid, ?nbFluid)
-  (?nbFluidNode pidsys:fluidCode ?nbFluid) (?nbFluidNode pidsys:selfOwningClass "flare")
+  (?nbFluidNode rdf:type pidsys:Fluid)
+  (?nbFluidNode pidsys:fluidCode ?nbFluid)
+  (?nbFluidNode pidsys:selfOwningClass "flare")
   (?comp pidsys:flowsTo ?nb)
   noValue(?nb pidsys:flowsTo ?comp)
   ->
   (?comp pidsys:skipAsConsumerSignal ?nb)
+  (?comp pidsys:skipFlareSink ?nb)
 ]
 
 # --- Directional consumer guard [algorithm_spec.md §7.2a] -------------------
@@ -70,19 +106,23 @@
 # fragment component (and not the reverse), the neighbour is a supply tying
 # in — not a consumer this fragment feeds.
 [directionalConsumerGuardSkip:
-  (?comp pidsys:isConnectedTo ?nb)
+  (?comp ido:connectedTo ?nb)
   (?nb pidsys:flowsTo ?comp)
   noValue(?comp pidsys:flowsTo ?nb)
   ->
   (?comp pidsys:skipAsConsumerSignal ?nb)
+  (?comp pidsys:skipSupplyTieIn ?nb)
 ]
 
 # --- Relief-device attribution [algorithm_spec.md §7.4a] --------------------
 # A relief device commissions with the side it protects (flow INTO the
-# valve), not the discharge side (flow OUT of the valve).
+# valve), not the discharge side (flow OUT of the valve). Asserts every
+# qualifying neighbour; rules_reference.relief_attribution returns the first
+# one it finds — jena_parity reports a valve with 2+ as its own category.
 [reliefAttribution:
-  (?valve rdf:type ?cls) (?role pidsys:boundaryMember ?cls)
-  regex(?role, 'relief')
+  (<https://pidsys.example/ns#boundary_role/relief> pidsys:boundaryMember ?cls)
+  (?valve rdf:type ?cls)
+  (?valve ido:connectedTo ?protectedSide)
   (?protectedSide pidsys:flowsTo ?valve)
   noValue(?valve pidsys:flowsTo ?protectedSide)
   ->

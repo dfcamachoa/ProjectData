@@ -41,7 +41,10 @@ BOUNDARY_ROWS = [
     {"component_class": "SafetyValveOrFitting", "role": "relief"},
     {"component_class": "Reliefdevices", "role": "relief"},
     {"component_class": "SteamTrap", "role": "trap"},
-    # CheckValve deliberately absent from every role set (project decision).
+    # CheckValve is NOT boundary-forming (project decision, [MD §3.2]). The real
+    # Boundary sheet lists it with an empty Role cell (read by pandas as NaN) —
+    # mirrored here so the "never boundary-forming" tests exercise that case.
+    {"component_class": "CheckValve", "role": float("nan")},
 ]
 
 SEGMENTS = [

@@ -1,0 +1,27 @@
+<PlantModel>
+  <PipingNetworkSystem ID="SY1">
+    <PipingNetworkSegment ID="SGC37A5B9F763147A8A4ADAE4046DC74CC">
+      <PipeOffPageConnector ID="SP481DC0A379F346C98B06D32E5E4EB805" ComponentClass="FlowOutPipeOffPageConnector" ComponentClassURI="http://sandbox.dexpi.org/rdl/FlowOutPipeOffPageConnector" ComponentName="PipeOffPageConnector_9346bf2b-c5b4-4185-bea3-105d40c8030a">
+        <ConnectionPoints NumPoints="2" FlowIn="1">
+          <Node ID="SPA3C267DBD0ADA5EBE506CCAD34FCB9DC" />
+          <Node ID="SP481DC0A379F346C98B06D32E5E4EB805_1" Type="process">
+            <GenericAttributes Set="DexpiAttributes" Number="1">
+              <GenericAttribute Name="NominalDiameterTypeRepresentationAssignmentClass" Format="string" Value="DN" />
+            </GenericAttributes>
+          </Node>
+        </ConnectionPoints>
+        <GenericAttributes Set="SPPID_orig" Number="13">
+          <GenericAttribute Name="SP_pairedWithID" Value="063F5BFE7E3B40D49EB73D98F03C45B1" Format="string" />
+          <GenericAttribute Name="TagReqdFlag" Value="True" Format="string" />
+          <GenericAttribute Name="OPCTag" Value="108230" Format="string" />
+          <GenericAttribute Name="MatingOPCPath" Value="4A24CABBF7A24E72B121CD82485765B7" Format="string" />
+          <GenericAttribute Name="ModelItemType" Value="OPC" Format="string" />
+          <GenericAttribute Name="ItemStatus" Value="Active" Format="string" />
+          <GenericAttribute Name="Description" Value="LLP STEAM" Format="string" />
+          <GenericAttribute Name="OPCType" Value="Off Drawing Piping Connector" Format="string" />
+          <GenericAttribute Name="PairedDrawingNumber" Value="362-92-PR-PID-02250" Format="string" />
+        </GenericAttributes>
+      </PipeOffPageConnector>
+    </PipingNetworkSegment>
+  </PipingNetworkSystem>
+</PlantModel>

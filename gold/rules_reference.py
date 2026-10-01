@@ -88,11 +88,18 @@ def is_self_owning(fluid_code: str, catalogue: dict) -> bool:
 # --------------------------------------------------------------------------
 
 def load_boundary_roles(ds: Dataset) -> dict:
-    """graph:refdata Boundary rows -> {role: {component_class_uri, ...}}."""
+    """graph:refdata Boundary rows -> {role: {component_class_uri, ...}}.
+
+    Only the four known roles (vocab.BOUNDARY_ROLES) are returned, so a stray
+    role node — e.g. the `boundary_role/nan` an empty Role cell once produced
+    (2026-09-23) — can never make a class boundary-forming through
+    `is_boundary_forming`, which ORs over every role it is given."""
     assert_rule_engine_did_not_read_oracle({v.GRAPH_REFDATA})
     roles: dict = {}
     for q in ds.triples(p=URIRef(v.P_BOUNDARY_MEMBER), graph=v.GRAPH_REFDATA):
         role = str(q.s).rsplit("/", 1)[-1]
+        if role not in v.BOUNDARY_ROLES:
+            continue
         roles.setdefault(role, set()).add(str(q.o))
     return roles
 

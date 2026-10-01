@@ -7,7 +7,11 @@ writes, idempotently:
 
     * `OffPage` edges into `silver_connections` (append, after clearing any prior
       OffPage rows) — the cross-document continuations (§3.3);
-    * `opc_open_boundary` rows into `silver_quality` — the unmatched OPCs (§3.4).
+    * `opc_open_boundary` rows into `silver_quality` — the unmatched OPCs (§3.4);
+    * `silver_off_page_connectors` — one per placed OPC (matched AND unmatched),
+      the per-OPC entity the Gold OffPageConnector node projects from
+      (Workstream 2); its `on_segment` is resolved by a left join to
+      `silver_components.segment_id`, so this must run AFTER Stage A+B.
 
 OPC records are tiny (a handful per sheet), so only they are collected to the
 driver — never the 13 MB payloads. Run AFTER Stage A+B has materialised
@@ -27,8 +31,11 @@ from .assemble import assemble_opcs, harvest_opcs_document
 from .config import SilverConfig
 from .schema import (
     CONNECTION_STRUCT,
-    OPC_COLUMNS,
-    OPC_STRUCT,
+    OPC_HARVEST_COLUMNS,
+    OPC_HARVEST_STRUCT,
+    OPC_ENTITY_COLUMNS,
+    OPC_ENTITY_STRUCT,
+    OPC_ENTITY_TABLE,
     QUALITY_COLUMNS,
     QUALITY_STRUCT,
     QUALITY_TABLE,
@@ -39,17 +46,20 @@ _CONN_COLUMNS = [f.name for f in CONNECTION_STRUCT.fields]
 
 
 def _harvest_udf():
-    """One Bronze row -> an array of OPC structs (this sheet's placed OPCs)."""
+    """One Bronze row -> an array of OPC structs (this sheet's placed OPCs),
+    carrying matcher keys AND the descriptive entity fields (Workstream 2), so
+    the per-OPC entity table has a source. match_pairs still reads only the
+    matcher subset; the entity fields ride along to the driver."""
     def _run(content, source_format, bronze_id, content_hash, document_number, project_code):
         try:
             recs = harvest_opcs_document(
                 bytes(content) if content is not None else b"",
                 source_format, bronze_id=bronze_id, content_hash=content_hash,
                 document_number=document_number, project_code=project_code)
-            return [tuple(r.get(c) for c in OPC_COLUMNS) for r in recs]
+            return [tuple(r.get(c) for c in OPC_HARVEST_COLUMNS) for r in recs]
         except Exception:
             return []
-    return udf(_run, ArrayType(OPC_STRUCT))
+    return udf(_run, ArrayType(OPC_HARVEST_STRUCT))
 
 
 def run_assembly(cfg: SilverConfig, spark: Optional[SparkSession] = None) -> dict:
@@ -98,8 +108,41 @@ def run_assembly(cfg: SilverConfig, spark: Optional[SparkSession] = None) -> dic
             (spark.createDataFrame(qrows, schema=QUALITY_STRUCT)
                  .write.format("delta").mode("append").saveAsTable(qual_tbl))
 
+        # 5) per-OPC entity rows -> silver_off_page_connectors (Workstream 2).
+        # on_segment is filled by joining each OPC to its silver_components row
+        # (an OPC lands there with kind containing "OffPageConnector"), taking
+        # that row's segment_id — Stage B already computed the linkage, so this
+        # reuses it rather than re-running the pipeline. JOIN KEY: opc_id == the
+        # component's component_id. If reconstruct.py derives component_id via a
+        # transform of the raw element ID, apply the same transform to opc_id
+        # here before the join.
+        opc_tbl = cfg.table(OPC_ENTITY_TABLE)
+        spark.sql(f"DROP TABLE IF EXISTS {opc_tbl}")
+        if result["off_page_connectors"]:
+            if cfg.enable_hive and cfg.silver_schema:
+                spark.sql(f"CREATE DATABASE IF NOT EXISTS {cfg.silver_schema}")
+            erows = [tuple(rec.get(c) for c in OPC_ENTITY_COLUMNS)
+                     for rec in result["off_page_connectors"]]
+            ent_df = spark.createDataFrame(erows, schema=OPC_ENTITY_STRUCT)
+            # resolve on_segment from silver_components.segment_id (left join, so
+            # an OPC with no matching component row keeps on_segment = None)
+            comp_tbl = cfg.table("silver_components")
+            seg_lookup = (spark.table(comp_tbl)
+                          .select(F.col("component_id").alias("_cid"),
+                                  F.col("segment_id").alias("_seg")))
+            ent_df = (ent_df.join(seg_lookup,
+                                  ent_df["opc_id"] == seg_lookup["_cid"], "left")
+                            .withColumn("on_segment", F.coalesce(F.col("_seg"),
+                                                                 F.col("on_segment")))
+                            .drop("_cid", "_seg"))
+            # re-project to the declared column order before writing
+            ent_df = ent_df.select(*OPC_ENTITY_COLUMNS)
+            (ent_df.write.format("delta").mode("overwrite")
+                   .option("overwriteSchema", "true").saveAsTable(opc_tbl))
+
         stats = dict(result["stats"])
         stats["silver_connections"] = conn_tbl
+        stats["silver_off_page_connectors"] = opc_tbl
         return stats
     finally:
         if own:

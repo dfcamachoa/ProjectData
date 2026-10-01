@@ -33,16 +33,45 @@ def _harvest_opcs(dom):
         return harvest_opcs(dom)
     # DEXPI: OPCs are PipeOffPageConnector, keyed by SP_pairedWithID GUID.
     recs = []
+    from bppidsys.offpage import _parse_to_from   # shared TO/FROM label parser
     for e in dom.root.iter("PipeOffPageConnector"):
         if dom.in_catalogue(e):
             continue
         eid = e.get("ID")
+        to_from_dir, to_from_text = _parse_to_from(dom.ga(e, "ToFromText"))
         recs.append({
             "eid": eid,
             "guid_self": eid[2:] if eid and eid.startswith("SP") else eid,
             "guid_mate": dom.ga(e, "SP_pairedWithID"),
             "opctag": None,          # DEXPI pairs by GUID, not OPCTag
             "home": None, "paired": dom.ga(e, "PairedDrawingNumber"),
+            # --- Workstream 2 OPC feed (Step 1) -----------------------------
+            # DEXPI carries BOTH a typed symbol flow role (ComponentClass:
+            # FlowIn/FlowOutPipeOffPageConnector, with ComponentClassURI the
+            # sandbox RDL URI, passed through verbatim -- NEVER minted as a
+            # TEN_RDL/PLM class) AND the same descriptive GenericAttributes
+            # PostProc uses (OPCType classification, ToFromText mate-narrative).
+            # Confirmed 2026-09-18 that OPCType/ToFromText are NOT PostProc-only.
+            # flow_direction is the real flow role; opc_type / to_from_* are
+            # descriptive provenance and assert NO direction (ToFromText names
+            # the mate, e.g. "LP ACID GAS FLARE", it is not a flow sense).
+            # None of these affect pairing (match_pairs reads only guid_*/opctag).
+            # on_segment is attached later from the built component's .seg_id
+            # (Step 3), not read here.
+            # ComponentClass / ComponentClassURI are DIRECT XML ATTRIBUTES on the
+            # element (confirmed against real Project-A DEXPI 2026-09-23:
+            # <PipeOffPageConnector ComponentClass="FlowOut..." ComponentClassURI=
+            # "http://sandbox.dexpi.org/rdl/FlowOut..."/>), NOT <GenericAttribute>
+            # children -- so they are read with e.get(), not dom.ga() (which reads
+            # GenericAttribute children only and returns None for element attrs).
+            # OPCType / ToFromText, by contrast, ARE GenericAttribute children, so
+            # they keep dom.ga(). This split was the cause of empty flow_direction/
+            # component_class_uri while opc_type/to_from_text populated correctly.
+            "flow_direction": e.get("ComponentClass"),
+            "class_uri": e.get("ComponentClassURI"),
+            "opc_type": dom.ga(e, "OPCType"),
+            "to_from_dir": to_from_dir,
+            "to_from_text": to_from_text,
         })
     return recs
 
@@ -100,6 +129,16 @@ class ReconstructedGraph:
     def __init__(self, res, dom=None):
         self.res = res
         self._dom = dom
+        # OPC stitching results — populated by _stitch_from (assemble() path
+        # only). Defaulted here so a single-sheet from_path() graph, which never
+        # stitches, still exposes them safely (empty structure, zero counts)
+        # instead of AttributeError when Step-4 code or the coverage report
+        # reads them. Workstream 2 (Step 2).
+        self.opc_pairs = []
+        self.opc_unmatched = []
+        self.opc_by_id = {}
+        self.opc_stitched = 0
+        self.opc_offset = 0
         self.by = res.by_id()
         self.und = {k: set(v) for k, v in res.und.items()}
         self.adj = {k: set(v) for k, v in res.adj.items()}
@@ -189,8 +228,58 @@ class ReconstructedGraph:
         self.res.components = list(self.res.components) + list(other.res.components)
 
     def _stitch_from(self, opc_records):
+        """Cross-document OPC stitching. Adds the matched pairs as undirected
+        graph.und adjacency (so a system continues across sheets and walk.py's
+        off-set detection works) AND — Workstream 2 (Steps 2-3) — retains the
+        stitched structure, enriched with each OPC's on-segment, so the Silver
+        OPC feed (Steps 4-5) can build per-OPC rows (incl. the `terminates`
+        edge) and the matched-pair "Off-Page continuation" connections.
+
+        Before this, only two integer COUNTS survived (opc_stitched/opc_offset)
+        and the pairing was discarded once folded into und — leaving no source
+        for a Gold OffPageConnector node or terminates edge. The counts are kept
+        as integers (unchanged; the coverage report and notebook glue read them
+        that way); the retained structure rides alongside as new attributes:
+
+          opc_pairs    -- [(eid_a, eid_b), ...] the matched cross-document pairs
+          opc_unmatched-- [eid, ...] placed OPCs whose mate is not in the loaded
+                          set (open boundary — the system continues off-set;
+                          each still gets a Gold node, but NO pair connection)
+          opc_by_id    -- {eid: harvest_record} so a pair's eids resolve back to
+                          the full Step-1 record (opc_type, flow_direction,
+                          class_uri, to_from_dir/text, paired, home), each record
+                          ALSO carrying on_segment (Step 3): the PipingSegment
+                          the OPC sits on — its `terminates` target — or None
+                          when the built component has no seg_id (e.g. an
+                          instrument OPC not on a pipe; Step 4 branches on
+                          opc_type before emitting `terminates`).
+
+        opc_records is the concatenation assemble() built across every sheet, so
+        opc_by_id spans the whole loaded set — an unmatched eid on one sheet can
+        still be resolved to its record for its Gold node.
+        """
         from bppidsys.offpage import match_pairs
         edges, unmatched = match_pairs(opc_records)
+        # retained structure (Step 2) — new attributes, do not replace the counts
+        self.opc_pairs = list(edges)
+        self.opc_unmatched = list(unmatched)
+        self.opc_by_id = {r["eid"]: r for r in opc_records if r.get("eid")}
+        # on_segment (Step 3): the segment each OPC sits on — the model's
+        # `terminates` target (map_off_page_connector). The OPC element is a
+        # built component in self.by; a non-Segment component carries .seg_id
+        # (the same association __init__ uses for comp_fluid, line 147-148). We
+        # write it back onto the retained record here — where both opc_by_id and
+        # self.by are in scope — rather than re-reading XML in the Step-1 harvest.
+        # None when the component has no seg_id (e.g. an instrument OPC that does
+        # not sit on a PipingSegment — Step 4 branches on opc_type before
+        # emitting `terminates`; never fabricate a segment). Also cross-checks
+        # the OPC-ness of the resolved component against walk._opc_ids' own
+        # discriminator so a stray non-OPC eid can't silently acquire a segment.
+        for eid, rec in self.opc_by_id.items():
+            comp = self.by.get(eid)
+            seg_id = getattr(comp, "seg_id", None) if comp is not None else None
+            rec["on_segment"] = seg_id
+        # existing behaviour — undirected stitch + integer counts (unchanged)
         self.opc_stitched = 0
         for a, b in edges:
             self.und.setdefault(a, set()).add(b)

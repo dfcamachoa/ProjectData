@@ -34,9 +34,10 @@ from .temporal import DeltaType, GoldRow
 # finding), not a *_id row id, so there is no single row to .loc[]/index
 # into for that grain -- see `resolve_line_seg_tag` in silver_cdc.py.
 GRAIN_TABLE = {"component": "silver_components", "line": "silver_segments",
-               "equipment": "silver_equipment", "connection": "silver_connections"}
+               "equipment": "silver_equipment", "connection": "silver_connections",
+               "off_page_connector": "silver_off_page_connectors"}
 GRAIN_ID_COL = {"component": "component_id", "equipment": "equipment_id",
-                "connection": "connection_id"}
+                "connection": "connection_id", "off_page_connector": "opc_id"}
 
 # bronze_layer_spec.md §6: dates are stored verbatim, project-scoped format.
 # DDMMMYY is DEXPI/project A's; YYYY/MM/DD is PostProc/project B's -- add a
@@ -164,7 +165,7 @@ def resolve_line_attrs_for_event(seg_tag: str, dwg: str, lines: "list[dict]",
 def build_events(
     cdc_rows: "list[dict]",
     valid_from_by_doc: "dict[str, date]",
-    attrs_by_grain: "dict[str, dict]",          # {grain: {uid: row_dict}} for component/equipment/connection
+    attrs_by_grain: "dict[str, dict]",          # {grain: {uid: row_dict}} for component/equipment/connection/off_page_connector
     lines_by_drawing: "dict[str, list]",        # {drawing_number: [aggregate_lines() result, ...]}
     segment_rows: "list[dict]",                  # raw silver_segments rows -- the aggregate_line_attrs fallback
 ) -> "Tuple[List[SilverCdcEvent], List[dict]]":

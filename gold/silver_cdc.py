@@ -45,7 +45,15 @@ from .temporal import DeltaType, GoldRow, RetroactiveCorrection, apply_delta
 # contains. See `aggregate_line_attrs` below for the attrs-resolution side of
 # this change (that lives in the caller, not here, but the grain rename is
 # what makes `"line"` the object_kind SilverCdcEvent now has to accept).
-OBJECT_KINDS = ("component", "line", "equipment", "connection")
+# --- Off-Page Connector grain (Workstream 2, 2026-09-18): OPCs are now a
+# first-class Silver object (silver_off_page_connectors), and Stage E's producer
+# (silver/cdc.py + cdc_job.py) emits grain="off_page_connector" deltas, so this
+# consumption module must accept them too. Without this entry
+# SilverCdcEvent.__post_init__ raises ValueError on every OPC event and nothing
+# reaches Gold — the one hard gate the OPC feed depends on. The matched-pair
+# OffPage CONNECTION is NOT a new grain: it rides the existing "connection" grain
+# (silver_connections), so only the per-OPC entity needs a kind here.
+OBJECT_KINDS = ("component", "line", "equipment", "connection", "off_page_connector")
 
 # --- Real-data finding (2026-09-04, Project B Rev C/D narrative): silver_cdc's
 # `anchor` is a BUCKET key for components -- silver_layer_spec.md §3.5 pairs
@@ -78,7 +86,7 @@ class SilverCdcEvent:
     delete+recreate that Stage E's own acceptance test proves collapses to
     zero deltas never reaches Gold as churn either.
     """
-    object_kind: str                 # 'component' | 'line' | 'equipment' | 'connection'
+    object_kind: str                 # 'component'|'line'|'equipment'|'connection'|'off_page_connector'
     anchor_id: str                   # Stage E's anchor-match identity (e.g. anchor_hash)
     delta_type: DeltaType
     drawing_number: str

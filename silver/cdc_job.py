@@ -37,6 +37,11 @@ _NON_COMPONENT_KINDS = {"Segment", "Nozzle", "Equipment"}
 _EQ_COLS = ["equipment_id", "tag", "equipment_class", "nozzle_ids",
             "drawing_number", "project_code", "source_format", "content_hash"]
 _CONN_COLS = ["from_id", "to_id", "flow_sense", "drawing_number", "content_hash"]
+# Off-page connectors (Workstream 2): the fields the OPC anchor + eng/audit
+# hashes read. content_hash is the Bronze version key (as for the other grains).
+_OPC_COLS = ["opc_id", "opc_type", "flow_direction", "on_segment", "to_from_text",
+             "component_class_uri", "opctag", "guid_mate", "paired_drawing",
+             "drawing_number", "project_code", "source_format", "content_hash"]
 
 
 def _cdc_id(d: dict) -> str:
@@ -74,6 +79,20 @@ def _obj_eq(r: dict, revision) -> dict:
     return {"uid": r["equipment_id"], "tag": r.get("tag"),
             "equipment_class": r.get("equipment_class"),
             "nozzle_tags": list(r.get("nozzle_ids") or []),
+            "drawing_number": r.get("drawing_number"), "version": r.get("content_hash"),
+            "revision": revision, "project_code": r.get("project_code"),
+            "source_format": r.get("source_format")}
+
+
+def _obj_opc(r: dict, revision) -> dict:
+    """Normalise a silver_off_page_connectors row into the cdc-core object shape
+    (uid + the anchor/eng fields the off_page_connector grain reads). Mirrors
+    _obj_seg/_obj_cmp/_obj_eq."""
+    return {"uid": r["opc_id"], "opc_type": r.get("opc_type"),
+            "flow_direction": r.get("flow_direction"), "on_segment": r.get("on_segment"),
+            "to_from_text": r.get("to_from_text"),
+            "component_class_uri": r.get("component_class_uri"),
+            "opctag": r.get("opctag"), "guid_mate": r.get("guid_mate"),
             "drawing_number": r.get("drawing_number"), "version": r.get("content_hash"),
             "revision": revision, "project_code": r.get("project_code"),
             "source_format": r.get("source_format")}
@@ -122,6 +141,13 @@ def run_cdc(cfg: SilverConfig, spark: Optional[SparkSession] = None) -> dict:
                  if r.get("kind") not in _NON_COMPONENT_KINDS]
         equips = grab("silver_equipment", _EQ_COLS)
         conns = grab("silver_connections", _CONN_COLS)
+        # OPC entity table is written by Stage C's Workstream-2 path; it may be
+        # absent on an older Silver build, so guard the read rather than fail the
+        # whole CDC run (the other grains still diff).
+        try:
+            opcs = grab("silver_off_page_connectors", _OPC_COLS)
+        except Exception:
+            opcs = []
 
         def bucket(rows, ch, dwg):
             return [r for r in rows if r.get("content_hash") == ch
@@ -141,10 +167,12 @@ def run_cdc(cfg: SilverConfig, spark: Optional[SparkSession] = None) -> dict:
                 c = [_obj_cmp(r, rev_of.get(ch)) for r in bucket(comps, ch, dwg)]
                 e = [_obj_eq(r, rev_of.get(ch)) for r in bucket(equips, ch, dwg)]
                 cn = bucket(conns, ch, dwg)
+                o = [_obj_opc(r, rev_of.get(ch)) for r in bucket(opcs, ch, dwg)]
                 cdc.enrich_neighbors(s, c, e, cn)      # component/equipment neighbours
                 side[tag] = {"line": cdc.aggregate_lines(s, c, cn),
-                             "component": c, "equipment": e}
-            for grain in ("line", "component", "equipment"):
+                             "component": c, "equipment": e,
+                             "off_page_connector": o}
+            for grain in ("line", "component", "equipment", "off_page_connector"):
                 deltas.extend(cdc.diff(side["old"][grain], side["new"][grain], grain))
 
         # --- 4) write silver_cdc ---------------------------------------------

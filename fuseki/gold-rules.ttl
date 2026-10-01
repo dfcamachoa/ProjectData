@@ -1,0 +1,57 @@
+# gold-rules — a read-only Fuseki service that runs gold/jena_rules/
+# classification.rules through Jena's GenericRuleReasoner.
+#
+# Why a separate, in-memory service rather than an InfModel over the TDB2
+# "gold" dataset:
+#   * Firewall by construction. The reasoner's base model is built from
+#     exactly two files, rules-input/masterdata.nt and rules-input/refdata.nt
+#     (written by gold/jena_parity.py::export_rule_input). graph:oracle is
+#     never in its input, so no rule can read it — not "shouldn't", can't.
+#   * No stale inference. An InfModel wrapping TDB2 graphs does not notice
+#     push_dataset's drop-and-replace PUTs (the reasoner would need a
+#     rebind() that HTTP cannot trigger), and TDB2's strict transactions do
+#     not reliably propagate through an InfModel/UnionModel stack. Loading
+#     at startup sidesteps both: re-export, restart the container, and the
+#     inferences are recomputed from scratch.
+#
+# Mounted by fuseki/docker-compose.yml at /fuseki/configuration/gold-rules.ttl;
+# Fuseki loads every *.ttl in that directory on startup, next to the
+# auto-created "gold" dataset. Endpoints (read-only):
+#   http://localhost:3030/gold-rules/sparql   SPARQL query
+#   http://localhost:3030/gold-rules/query    SPARQL query
+#   http://localhost:3030/gold-rules          SPARQL query (the dataset URL itself)
+#   http://localhost:3030/gold-rules/get      Graph Store read
+#
+# Revision 2026-09-23 (first live run): the first version used the legacy
+# `fuseki:serviceQuery "sparql", "query"` form; on the user's stain/jena-fuseki
+# it did not register a query operation (/gold-rules/sparql answered HTTP 405).
+# Now the explicit fuseki:endpoint / fuseki:operation form (Fuseki 3.15+, the
+# documented form for 4.x/5.x), plus a query operation on the dataset URL
+# itself, which gold/jena_parity.py falls back to.
+
+@prefix :       <#> .
+@prefix fuseki: <http://jena.apache.org/fuseki#> .
+@prefix rdf:    <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix ja:     <http://jena.hpl.hp.com/2005/11/Assembler#> .
+
+:service a fuseki:Service ;
+    fuseki:name     "gold-rules" ;
+    fuseki:endpoint [ fuseki:operation fuseki:query ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:query ; fuseki:name "sparql" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:query ; fuseki:name "query" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:gsp-r ; fuseki:name "get" ] ;
+    fuseki:dataset  :dataset .
+
+:dataset a ja:RDFDataset ;
+    ja:defaultGraph :inf .
+
+:inf a ja:InfModel ;
+    ja:baseModel :base ;
+    ja:reasoner [
+        ja:reasonerURL <http://jena.hpl.hp.com/2003/GenericRuleReasoner> ;
+        ja:rulesFrom   <file:///fuseki/rules/classification.rules>
+    ] .
+
+:base a ja:MemoryModel ;
+    ja:content [ ja:externalContent <file:///fuseki/rules-input/masterdata.nt> ] ;
+    ja:content [ ja:externalContent <file:///fuseki/rules-input/refdata.nt> ] .
